@@ -28,8 +28,8 @@ debugger_frame::debugger_frame(QWidget *parent) : QDockWidget(tr("Debugger"), pa
 	m_choice_units->setMaxVisibleItems(30);
 	m_choice_units->setMaximumWidth(500);
 
-	m_go_to_addr = new QPushButton(tr("Go To Address"), this);
-	m_go_to_pc = new QPushButton(tr("Go To PC"), this);
+	m_go_to_addr = new QPushButton(tr("Go to address"), this);
+	m_go_to_pc = new QPushButton(tr("Go to PC"), this);
 	m_btn_step = new QPushButton(tr("Step"), this);
 	m_btn_run = new QPushButton(tr("Run"), this);
 	m_btn_pause = new QPushButton(tr("Pause"), this);

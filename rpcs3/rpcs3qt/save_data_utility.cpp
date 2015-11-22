@@ -8,7 +8,7 @@ inline QString qstr(const std::string& _in) { return QString::fromUtf8(_in.data(
 save_data_info_dialog::save_data_info_dialog(const SaveDataEntry& save, QWidget* parent)
 	: QDialog(parent), m_entry(save)
 {
-	setWindowTitle(tr("Save Data Information"));
+	setWindowTitle(tr("Save data information"));
 	setMinimumSize(QSize(400, 300));
 
 	// Table
@@ -69,7 +69,7 @@ void save_data_info_dialog::UpdateData()
 save_data_list_dialog::save_data_list_dialog(const std::vector<SaveDataEntry>& entries, s32 focusedEntry, bool is_saving, QWidget* parent)
 	: QDialog(parent), m_save_entries(entries), m_selectedEntry(-1), selectedEntryLabel(nullptr)
 {
-	setWindowTitle(tr("Save Data Utility"));
+	setWindowTitle(tr("Save data utility"));
 	setMinimumSize(QSize(400, 400));
 
 	// Table
@@ -92,14 +92,14 @@ save_data_list_dialog::save_data_list_dialog(const std::vector<SaveDataEntry>& e
 
 	connect(push_select, &QAbstractButton::clicked, this, &save_data_list_dialog::accept);
 	hbox_action->addWidget(push_select);
-	setWindowTitle(tr("Save Data Chooser"));
+	setWindowTitle(tr("Save data chooser"));
 
 	selectedEntryLabel = new QLabel(this);
 	UpdateSelectionLabel();
 
 	if (is_saving)
 	{
-		QPushButton *saveNewEntry = new QPushButton(tr("Save New Entry"), this);
+		QPushButton *saveNewEntry = new QPushButton(tr("Save new entry"), this);
 		connect(saveNewEntry, &QAbstractButton::clicked, this, [&]() {
 			m_selectedEntry = -1; // Set the return properly.
 			accept();
@@ -147,12 +147,12 @@ void save_data_list_dialog::UpdateSelectionLabel()
 	{
 		if (m_list->currentRow() == -1)
 		{
-			selectedEntryLabel->setText(tr("Currently Selected: None"));
+			selectedEntryLabel->setText(tr("Currently selected: None"));
 		}
 		else
 		{
 			int entry = m_list->item(m_list->currentRow(), 0)->data(Qt::UserRole).toInt();
-			selectedEntryLabel->setText(tr("Currently Selected: ") + qstr(m_save_entries[entry].dirName));
+			selectedEntryLabel->setText(tr("Currently selected: ") + qstr(m_save_entries[entry].dirName));
 		}
 	}
 }

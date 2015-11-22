@@ -9,7 +9,7 @@
 audio_tab::audio_tab(std::shared_ptr<emu_settings> xemu_settings, QWidget *parent) : QWidget(parent)
 {
 	// Audio Out
-	QGroupBox *audioOut = new QGroupBox(tr("Audio Out"));
+	QGroupBox *audioOut = new QGroupBox(tr("Audio out"));
 
 	QComboBox *audioOutBox = xemu_settings->CreateEnhancedComboBox(emu_settings::AudioRenderer, this);
 

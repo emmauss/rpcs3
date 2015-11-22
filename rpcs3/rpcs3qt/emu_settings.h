@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Utilities/File.h"
 #include "Utilities/Log.h"
@@ -20,7 +20,7 @@ struct Render_Creator
 	QStringList D3D12Adapters;
 	QStringList vulkanAdapters;
 	QString render_Vulkan = QObject::tr("Vulkan");
-	QString render_D3D12 = QObject::tr("D3D12");
+	QString render_D3D12 = QObject::tr("DirectX 12");
 	QString render_OpenGL = QObject::tr("OpenGL");
 
 	Render_Creator();
@@ -133,41 +133,41 @@ private:
 		// Core Tab
 		{ PPUDecoder,		{ "Core", "PPU Decoder"}},
 		{ SPUDecoder,		{ "Core", "SPU Decoder"}},
-		{ LibLoadOptions,	{ "Core", "Lib Loader"}},
+		{ LibLoadOptions,	{ "Core", "Lib loader"}},
 		{ HookStaticFuncs,	{ "Core", "Hook static functions"}},
 		{ BindSPUThreads,	{ "Core", "Bind SPU threads to secondary cores"}},
 		{ LowerSPUThreadPrio, { "Core", "Lower SPU thread priority"}},
 
 		// Graphics Tab
-		{ Renderer,			{ "Video", "Renderer"}},
+		{ Renderer,			{ "Video", "Rendering API"}},
 		{ Resolution,		{ "Video", "Resolution"}},
 		{ AspectRatio,		{ "Video", "Aspect ratio"}},
 		{ FrameLimit,		{ "Video", "Frame limit"}},
 		{ LogShaderPrograms,{ "Video", "Log shader programs"}},
-		{ WriteDepthBuffer, { "Video", "Write Depth Buffer"}},
-		{ WriteColorBuffers,{ "Video", "Write Color Buffers"}},
-		{ ReadColorBuffers, { "Video", "Read Color Buffers"}},
-		{ ReadDepthBuffer,	{ "Video", "Read Depth Buffer"}},
+		{ WriteDepthBuffer, { "Video", "Write depth buffer"}},
+		{ WriteColorBuffers,{ "Video", "Write color buffers"}},
+		{ ReadColorBuffers, { "Video", "Read color buffers"}},
+		{ ReadDepthBuffer,	{ "Video", "Read depth buffer"}},
 		{ VSync,			{ "Video", "VSync"}},
 		{ DebugOutput,		{ "Video", "Debug output"}},
 		{ DebugOverlay,		{ "Video", "Debug overlay"}},
-		{ LegacyBuffers,	{ "Video", "Use Legacy OpenGL Buffers"}},
+		{ LegacyBuffers,	{ "Video", "Use legacy OpenGL buffers"}},
 		{ GPUTextureScaling,{ "Video", "Use GPU texture scaling"}},
-		{ StretchToDisplayArea, { "Video", "Stretch To Display Area"}},
-		{ ForceHighpZ,      { "Video", "Force High Precision Z buffer"}},
-		{ AutoInvalidateCache, { "Video", "Invalidate Cache Every Frame"}},
-		{ StrictRenderingMode, { "Video", "Strict Rendering Mode"}},
-		{ D3D12Adapter,        { "Video", "D3D12", "Adapter"}},
+		{ StretchToDisplayArea, { "Video", "Stretch to display area"}},
+		{ ForceHighpZ,      { "Video", "Force high precision Z buffer"}},
+		{ AutoInvalidateCache, { "Video", "Invalidate cache every frame"}},
+		{ StrictRenderingMode, { "Video", "Strict rendering mode"}},
+		{ D3D12Adapter,        { "Video", "DirectX 12", "Adapter"}},
 		{ VulkanAdapter,       { "Video", "Vulkan", "Adapter"}},
 
 		// Audio
 		{ AudioRenderer,	{ "Audio", "Renderer"}},
 		{ DumpToFile,		{ "Audio", "Dump to file"}},
-		{ ConvertTo16Bit,	{ "Audio", "Convert to 16 bit"}},
+		{ ConvertTo16Bit,	{ "Audio", "Convert to 16-bit"}},
 		{ DownmixStereo,	{ "Audio", "Downmix to Stereo"}},
 
 		// Input / Output
-		{ PadHandler,		{ "Input/Output", "Pad"}},
+		{ PadHandler,		{ "Input/Output", "Controller"}},
 		{ KeyboardHandler,	{ "Input/Output", "Keyboard"}},
 		{ MouseHandler,		{ "Input/Output", "Mouse"}},
 		{ Camera,			{ "Input/Output", "Camera"}},

@@ -127,10 +127,10 @@ enum class video_aspect
 enum class frame_limit_type
 {
 	none,
-	_59_94,
-	_50,
-	_60,
 	_30,
+	_50,
+	_59_94,
+	_60,
 	_auto,
 };
 
@@ -268,7 +268,7 @@ struct cfg_root : cfg::node
 		cfg::_bool spu_debug{this, "SPU Debug"};
 		cfg::_int<32, 16384> max_spu_immediate_write_size{this, "Maximum immediate DMA write size", 16384}; // Maximum size that an SPU thread can write directly without posting to MFC
 
-		cfg::_enum<lib_loading_type> lib_loading{this, "Lib Loader", lib_loading_type::automatic};
+		cfg::_enum<lib_loading_type> lib_loading{this, "Lib loader", lib_loading_type::automatic};
 		cfg::_bool hook_functions{this, "Hook static functions"};
 		cfg::set_entry load_libraries{this, "Load libraries"};
 
@@ -294,26 +294,26 @@ struct cfg_root : cfg::node
 	{
 		node_video(cfg::node* _this) : cfg::node(_this, "Video") {}
 
-		cfg::_enum<video_renderer> renderer{this, "Renderer", video_renderer::opengl};
+		cfg::_enum<video_renderer> renderer{this, "Rendering API", video_renderer::opengl};
 
 		cfg::_enum<video_resolution> resolution{this, "Resolution", video_resolution::_720};
 		cfg::_enum<video_aspect> aspect_ratio{this, "Aspect ratio", video_aspect::_16_9};
 		cfg::_enum<frame_limit_type> frame_limit{this, "Frame limit", frame_limit_type::none};
 
-		cfg::_bool write_color_buffers{this, "Write Color Buffers"};
-		cfg::_bool write_depth_buffer{this, "Write Depth Buffer"};
-		cfg::_bool read_color_buffers{this, "Read Color Buffers"};
-		cfg::_bool read_depth_buffer{this, "Read Depth Buffer"};
+		cfg::_bool write_color_buffers{this, "Write color buffers"};
+		cfg::_bool write_depth_buffer{this, "Write depth buffer"};
+		cfg::_bool read_color_buffers{this, "Read color buffers"};
+		cfg::_bool read_depth_buffer{this, "Read depth buffer"};
 		cfg::_bool log_programs{this, "Log shader programs"};
 		cfg::_bool vsync{this, "VSync"};
 		cfg::_bool debug_output{this, "Debug output"};
 		cfg::_bool overlay{this, "Debug overlay"};
-		cfg::_bool gl_legacy_buffers{this, "Use Legacy OpenGL Buffers"};
+		cfg::_bool gl_legacy_buffers{this, "Use legacy OpenGL buffers"};
 		cfg::_bool use_gpu_texture_scaling{this, "Use GPU texture scaling", true};
-		cfg::_bool stretch_to_display_area{this, "Stretch To Display Area"};
-		cfg::_bool force_high_precision_z_buffer{this, "Force High Precision Z buffer"};
-		cfg::_bool invalidate_surface_cache_every_frame{this, "Invalidate Cache Every Frame", true};
-		cfg::_bool strict_rendering_mode{this, "Strict Rendering Mode"};
+		cfg::_bool stretch_to_display_area{this, "Stretch to display area"};
+		cfg::_bool force_high_precision_z_buffer{this, "Force high precision Z buffer"};
+		cfg::_bool invalidate_surface_cache_every_frame{this, "Invalidate cache every frame", true};
+		cfg::_bool strict_rendering_mode{this, "Strict rendering mode"};
 
 		cfg::_bool batch_instanced_geometry{this, "Batch Instanced Geometry", false};
 		cfg::_int<1, 16> vertex_upload_threads{ this, "Vertex Upload Threads", 1 };
@@ -324,7 +324,7 @@ struct cfg_root : cfg::node
 
 		struct node_d3d12 : cfg::node
 		{
-			node_d3d12(cfg::node* _this) : cfg::node(_this, "D3D12") {}
+			node_d3d12(cfg::node* _this) : cfg::node(_this, "DirectX 12") {}
 
 			cfg::string adapter{this, "Adapter"};
 
@@ -347,7 +347,7 @@ struct cfg_root : cfg::node
 		cfg::_enum<audio_renderer> renderer{this, "Renderer", static_cast<audio_renderer>(1)};
 
 		cfg::_bool dump_to_file{this, "Dump to file"};
-		cfg::_bool convert_to_u16{this, "Convert to 16 bit"};
+		cfg::_bool convert_to_u16{this, "Convert to 16-bit"};
 		cfg::_bool downmix_to_2ch{this, "Downmix to Stereo", true};
 
 	} audio{this};
@@ -358,7 +358,7 @@ struct cfg_root : cfg::node
 
 		cfg::_enum<keyboard_handler> keyboard{this, "Keyboard", keyboard_handler::null};
 		cfg::_enum<mouse_handler> mouse{this, "Mouse", mouse_handler::basic};
-		cfg::_enum<pad_handler> pad{this, "Pad", pad_handler::keyboard};
+		cfg::_enum<pad_handler> pad{this, "Controller", pad_handler::keyboard};
 		cfg::_enum<camera_handler> camera{this, "Camera", camera_handler::null};
 		cfg::_enum<fake_camera_type> camera_type{this, "Camera type", fake_camera_type::unknown};
 

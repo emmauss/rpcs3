@@ -22,11 +22,11 @@
 #include <QUrl>
 #include <QLabel>
 
-static const std::string m_class_name = "GameViewer";
+static const std::string m_class_name = "Game viewer";
 inline std::string sstr(const QString& _in) { return _in.toUtf8().toStdString(); }
 
 game_list_frame::game_list_frame(std::shared_ptr<gui_settings> settings, Render_Creator r_Creator, QWidget *parent) 
-	: QDockWidget(tr("Game List"), parent), xgui_settings(settings), m_Render_Creator(r_Creator)
+	: QDockWidget(tr("PS3 software"), parent), xgui_settings(settings), m_Render_Creator(r_Creator)
 {
 	m_isListLayout = xgui_settings->GetValue(GUI::gl_listMode).toBool();
 	m_Icon_Size_Str = xgui_settings->GetValue(GUI::gl_iconSize).toString();
@@ -65,31 +65,31 @@ game_list_frame::game_list_frame(std::shared_ptr<gui_settings> settings, Render_
 	// ToolBar Actions
 	m_catActHDD = { new QAction(""), QIcon(":/Icons/hdd_blue.png"), QIcon(":/Icons/hdd_gray.png") };
 	m_catActHDD.action->setIcon(xgui_settings->GetValue(GUI::cat_hdd_game).toBool() ? m_catActHDD.colored : m_catActHDD.gray);
-	m_catActHDD.action->setToolTip(tr("Show HDD Categories"));
+	m_catActHDD.action->setToolTip(tr("Show HDD categories"));
 
 	m_catActDisc = { new QAction(""), QIcon(":/Icons/disc_blue.png"), QIcon(":/Icons/disc_gray.png") };
 	m_catActDisc.action->setIcon(xgui_settings->GetValue(GUI::cat_disc_game).toBool() ? m_catActDisc.colored : m_catActDisc.gray);
-	m_catActDisc.action->setToolTip(tr("Show Disc Categories"));
+	m_catActDisc.action->setToolTip(tr("Show Disc categories"));
 
 	m_catActHome = { new QAction(""), QIcon(":/Icons/home_blue.png"), QIcon(":/Icons/home_gray.png") };
 	m_catActHome.action->setIcon(xgui_settings->GetValue(GUI::cat_home).toBool() ? m_catActHome.colored : m_catActHome.gray);
-	m_catActHome.action->setToolTip(tr("Show Home Categories"));
+	m_catActHome.action->setToolTip(tr("Show Home categories"));
 
 	m_catActAudioVideo = { new QAction(""), QIcon(":/Icons/media_blue.png"), QIcon(":/Icons/media_gray.png") };
 	m_catActAudioVideo.action->setIcon(xgui_settings->GetValue(GUI::cat_audio_video).toBool() ? m_catActAudioVideo.colored : m_catActAudioVideo.gray);
-	m_catActAudioVideo.action->setToolTip(tr("Show Audio/Video Categories"));
+	m_catActAudioVideo.action->setToolTip(tr("Show Audio/Video categories"));
 
 	m_catActGameData = { new QAction(""), QIcon(":/Icons/data_blue.png"), QIcon(":/Icons/data_gray.png") };
 	m_catActGameData.action->setIcon(xgui_settings->GetValue(GUI::cat_game_data).toBool() ? m_catActGameData.colored : m_catActGameData.gray);
-	m_catActGameData.action->setToolTip(tr("Show GameData Categories"));
+	m_catActGameData.action->setToolTip(tr("Show GameData categories"));
 
 	m_catActUnknown = { new QAction(""), QIcon(":/Icons/unknown_blue.png"), QIcon(":/Icons/unknown_gray.png") };
 	m_catActUnknown.action->setIcon(xgui_settings->GetValue(GUI::cat_unknown).toBool() ? m_catActUnknown.colored : m_catActUnknown.gray);
-	m_catActUnknown.action->setToolTip(tr("Show Unknown Categories"));
+	m_catActUnknown.action->setToolTip(tr("Show Unknown categories"));
 
 	m_catActOther = { new QAction(""), QIcon(":/Icons/other_blue.png"), QIcon(":/Icons/other_gray.png") };
 	m_catActOther.action->setIcon(xgui_settings->GetValue(GUI::cat_other).toBool() ? m_catActOther.colored : m_catActOther.gray);
-	m_catActOther.action->setToolTip(tr("Show Other Categories"));
+	m_catActOther.action->setToolTip(tr("Show Other categories"));
 
 	m_categoryButtons = { m_catActHDD , m_catActDisc, m_catActHome, m_catActAudioVideo, m_catActGameData, m_catActUnknown, m_catActOther };
 
@@ -105,11 +105,11 @@ game_list_frame::game_list_frame(std::shared_ptr<gui_settings> settings, Render_
 
 	m_modeActList = { new QAction(""), QIcon(":/Icons/list_blue.png"), QIcon(":/Icons/list_gray.png") };
 	m_modeActList.action->setIcon(m_isListLayout ? m_modeActList.colored : m_modeActList.gray);
-	m_modeActList.action->setToolTip(tr("Enable List Mode"));
+	m_modeActList.action->setToolTip(tr("Enable list mode"));
 
 	m_modeActGrid = { new QAction(""), QIcon(":/Icons/grid_blue.png"), QIcon(":/Icons/grid_gray.png") };
 	m_modeActGrid.action->setIcon(m_isListLayout ? m_modeActGrid.gray : m_modeActGrid.colored);
-	m_modeActGrid.action->setToolTip(tr("Enable Grid Mode"));
+	m_modeActGrid.action->setToolTip(tr("Enable grid mode"));
 
 	m_modeActs = new QActionGroup(m_Tool_Bar);
 	m_modeActs->addAction(m_modeActList.action);
@@ -195,13 +195,13 @@ game_list_frame::game_list_frame(std::shared_ptr<gui_settings> settings, Render_
 	m_Game_Dock->setCentralWidget(m_Central_Widget);
 
 	// Actions
-	showIconColAct = new QAction(tr("Show Icons"), this);
-	showNameColAct = new QAction(tr("Show Names"), this);
-	showSerialColAct = new QAction(tr("Show Serials"), this);
+	showIconColAct = new QAction(tr("Show icons"), this);
+	showNameColAct = new QAction(tr("Show names"), this);
+	showSerialColAct = new QAction(tr("Show serials"), this);
 	showFWColAct = new QAction(tr("Show Firmwares"), this);
-	showAppVersionColAct = new QAction(tr("Show Versions"), this);
-	showCategoryColAct = new QAction(tr("Show Categories"), this);
-	showPathColAct = new QAction(tr("Show Paths"), this);
+	showAppVersionColAct = new QAction(tr("Show versions"), this);
+	showCategoryColAct = new QAction(tr("Show categories"), this);
+	showPathColAct = new QAction(tr("Show paths"), this);
 	showResolutionColAct = new QAction(tr("Show Supported Resolutions"), this);
 	showSoundFormatColAct = new QAction(tr("Show Sound Formats"), this);
 	showParentalLevelColAct = new QAction(tr("Show Parental Levels"), this);
@@ -405,6 +405,7 @@ void game_list_frame::Refresh(bool fromDrive)
 			else if (game.category == sstr(category::unknown))
 			{
 				game.icon_path = dir + "/ICON0.PNG";
+				continue;
 			}
 			else
 			{
@@ -603,19 +604,19 @@ void game_list_frame::ShowSpecifiedContextMenu(const QPoint &pos, int row)
 	QAction* configure = myMenu.addAction(tr("&Configure"));
 	myMenu.addSeparator();
 	QAction* removeGame = myMenu.addAction(tr("&Remove"));
-	QAction* removeConfig = myMenu.addAction(tr("&Remove Custom Configuration"));
+	QAction* removeConfig = myMenu.addAction(tr("&Remove custom configuration"));
 	myMenu.addSeparator();
-	QAction* openGameFolder = myMenu.addAction(tr("&Open Install Folder"));
-	QAction* openConfig = myMenu.addAction(tr("&Open Config Folder"));
+	QAction* openGameFolder = myMenu.addAction(tr("&Open install folder"));
+	QAction* openConfig = myMenu.addAction(tr("&Open config folder"));
 	myMenu.addSeparator();
-	QAction* checkCompat = myMenu.addAction(tr("&Check Game Compatibility"));
+	QAction* checkCompat = myMenu.addAction(tr("&Check game compatibility"));
 
 	connect(boot, &QAction::triggered, [=]() {Boot(row); });
 	connect(configure, &QAction::triggered, [=]() {
 		settings_dialog(xgui_settings, m_Render_Creator, this, &m_game_data[row].info).exec();
 	});
 	connect(removeGame, &QAction::triggered, [=]() {
-		if (QMessageBox::question(this, tr("Confirm Delete"), tr("Permanently delete files?")) == QMessageBox::Yes)
+		if (QMessageBox::question(this, tr("Confirm delete"), tr("Permanently delete files?")) == QMessageBox::Yes)
 		{
 			fs::remove_all(Emu.GetGameDir() + m_game_data[row].info.root);
 			m_game_data.erase(m_game_data.begin() + row);
@@ -679,7 +680,7 @@ void game_list_frame::RemoveCustomConfiguration(int row)
 
 	if (fs::is_file(config_path))
 	{
-		if (QMessageBox::question(this, tr("Confirm Delete"), tr("Delete custom game configuration?")) == QMessageBox::Yes)
+		if (QMessageBox::question(this, tr("Confirm delete"), tr("Delete custom game configuration?")) == QMessageBox::Yes)
 		{
 			if (fs::remove_file(config_path))
 			{

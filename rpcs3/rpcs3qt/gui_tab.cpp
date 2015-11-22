@@ -1,4 +1,4 @@
-#include "gui_tab.h"
+﻿#include "gui_tab.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -18,10 +18,10 @@ gui_tab::gui_tab(std::shared_ptr<gui_settings> xSettings, QWidget *parent) : QWi
 	// control buttons
 	QGroupBox *gb_controls = new QGroupBox(tr("GUI Controls"), this);
 	QVBoxLayout *vbox_controls = new QVBoxLayout();
-	QPushButton *pb_reset_default = new QPushButton(tr("Reset GUI to Default"), this);
-	QPushButton *pb_backup_config = new QPushButton(tr("Save Current Configuration"), this);
-	QPushButton *pb_open_folder = new QPushButton(tr("Open Config/Sheet Folder"), this);
-	QCheckBox *cb_show_welcome = new QCheckBox(tr("Show Welcome Screen"), this);
+	QPushButton *pb_reset_default = new QPushButton(tr("Reset GUI to default"), this);
+	QPushButton *pb_backup_config = new QPushButton(tr("Save current configuration"), this);
+	QPushButton *pb_open_folder = new QPushButton(tr("Open config/sheet folder"), this);
+	QCheckBox *cb_show_welcome = new QCheckBox(tr("Show welcome screen"), this);
 	cb_show_welcome->setChecked(xSettings->GetValue(GUI::ib_show_welcome).toBool());
 
 	// Right Widgets
@@ -163,7 +163,7 @@ void gui_tab::OnBackupCurrentConfig()
 {
 	QInputDialog* dialog = new QInputDialog(this);
 	dialog->setWindowTitle(tr("Choose a unique name"));
-	dialog->setLabelText(tr("Configuration Name: "));
+	dialog->setLabelText(tr("Configuration name: "));
 	dialog->resize(500, 100);
 
 	while (dialog->exec() != QDialog::Rejected)
