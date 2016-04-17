@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Utilities/lockless.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
@@ -205,7 +205,6 @@ void SPUThread::cpu_init()
 	ch_out_mbox.data.store({});
 	ch_out_intr_mbox.data.store({});
 
-	snr_config = 0;
 
 	ch_snr1.data.store({});
 	ch_snr2.data.store({});
@@ -1336,7 +1335,8 @@ bool SPUThread::set_ch_value(u32 ch, u32 value)
 		// detect masking unimplemented events
 		if (value & ~SPU_EVENT_IMPLEMENTED)
 		{
-			break;
+			return ch_in_mbox.set_values(1, CELL_ESRCH), true;
+			LOG_TODO(SPU, "Unknown WrEventMask (ch=%d [%s], value=0x%x)" HERE);
 		}
 
 		ch_event_mask = value;
@@ -1347,7 +1347,8 @@ bool SPUThread::set_ch_value(u32 ch, u32 value)
 	{
 		if (value & ~SPU_EVENT_IMPLEMENTED)
 		{
-			break;
+			return ch_in_mbox.set_values(1, CELL_ESRCH), true;
+			LOG_TODO(SPU, "Unknown WrEventAck (ch=%d [%s], value=0x%x)" HERE);
 		}
 
 		ch_event_stat &= ~value;
@@ -1360,7 +1361,7 @@ bool SPUThread::set_ch_value(u32 ch, u32 value)
 	}
 	}
 
-	fmt::throw_exception("Unknown/illegal channel (ch=%d [%s], value=0x%x)" HERE, ch, ch < 128 ? spu_ch_name[ch] : "???", value);
+	LOG_TODO(SPU, "Unknown/illegal channel (ch=%d [%s], value=0x%x)" HERE, ch, ch < 128 ? spu_ch_name[ch] : "???", value);
 }
 
 bool SPUThread::stop_and_signal(u32 code)
