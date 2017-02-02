@@ -9,7 +9,7 @@ namespace
 	// FIXME: GSL as_span break build if template parameter is non const with current revision.
 	// Replace with true as_span when fixed.
 	template <typename T>
-	gsl::span<T> as_span_workaround(gsl::span<gsl::byte> unformated_span)
+	gsl::multi_span<T> as_span_workaround(gsl::multi_span<gsl::byte> unformated_span)
 	{
 		return{ (T*)unformated_span.data(), ::narrow<int>(unformated_span.size_bytes() / sizeof(T)) };
 	}
@@ -350,7 +350,7 @@ namespace
 	}
 }
 
-void write_vertex_array_data_to_buffer(gsl::span<gsl::byte> raw_dst_span, gsl::span<const gsl::byte> src_ptr, u32 count, rsx::vertex_base_type type, u32 vector_element_count, u32 attribute_src_stride, u8 dst_stride)
+void write_vertex_array_data_to_buffer(gsl::multi_span<gsl::byte> raw_dst_span, gsl::multi_span<const gsl::byte> src_ptr, u32 count, rsx::vertex_base_type type, u32 vector_element_count, u32 attribute_src_stride, u8 dst_stride)
 {
 	verify(HERE), (vector_element_count > 0);
 	const u32 src_read_stride = rsx::get_vertex_type_size_on_host(type, vector_element_count);
@@ -425,7 +425,7 @@ void write_vertex_array_data_to_buffer(gsl::span<gsl::byte> raw_dst_span, gsl::s
 	}
 	case rsx::vertex_base_type::cmp:
 	{
-		gsl::span<u16> dst_span = as_span_workaround<u16>(raw_dst_span);
+		gsl::multi_span<u16> dst_span = as_span_workaround<u16>(raw_dst_span);
 		for (u32 i = 0; i < count; ++i)
 		{
 			be_t<u32> src_value;
@@ -446,7 +446,7 @@ void write_vertex_array_data_to_buffer(gsl::span<gsl::byte> raw_dst_span, gsl::s
 namespace
 {
 template<typename T>
-std::tuple<T, T> upload_untouched(gsl::span<to_be_t<const T>> src, gsl::span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
+std::tuple<T, T> upload_untouched(gsl::multi_span<to_be_t<const T>> src, gsl::multi_span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
 {
 	T min_index = -1;
 	T max_index = 0;
@@ -473,7 +473,7 @@ std::tuple<T, T> upload_untouched(gsl::span<to_be_t<const T>> src, gsl::span<T> 
 
 // FIXME: expanded primitive type may not support primitive restart correctly
 template<typename T>
-std::tuple<T, T> expand_indexed_triangle_fan(gsl::span<to_be_t<const T>> src, gsl::span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
+std::tuple<T, T> expand_indexed_triangle_fan(gsl::multi_span<to_be_t<const T>> src, gsl::multi_span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
 {
 	T min_index = -1;
 	T max_index = 0;
@@ -490,7 +490,7 @@ std::tuple<T, T> expand_indexed_triangle_fan(gsl::span<to_be_t<const T>> src, gs
 	size_t dst_idx = 0;
 	while (src.size() > 2)
 	{
-		gsl::span<to_be_t<const T>> tri_indexes = src.subspan(0, 2);
+		gsl::multi_span<to_be_t<const T>> tri_indexes = src.subspan(0, 2);
 		T index1 = tri_indexes[0];
 		if (is_primitive_restart_enabled && index1 == primitive_restart_index)
 		{
@@ -523,7 +523,7 @@ std::tuple<T, T> expand_indexed_triangle_fan(gsl::span<to_be_t<const T>> src, gs
 
 // FIXME: expanded primitive type may not support primitive restart correctly
 template<typename T>
-std::tuple<T, T> expand_indexed_quads(gsl::span<to_be_t<const T>> src, gsl::span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
+std::tuple<T, T> expand_indexed_quads(gsl::multi_span<to_be_t<const T>> src, gsl::multi_span<T> dst, bool is_primitive_restart_enabled, T primitive_restart_index)
 {
 	T min_index = -1;
 	T max_index = 0;
@@ -533,7 +533,7 @@ std::tuple<T, T> expand_indexed_quads(gsl::span<to_be_t<const T>> src, gsl::span
 	size_t dst_idx = 0;
 	while (!src.empty())
 	{
-		gsl::span<to_be_t<const T>> quad_indexes = src.subspan(0, 4);
+		gsl::multi_span<to_be_t<const T>> quad_indexes = src.subspan(0, 4);
 		T index0 = quad_indexes[0];
 		if (is_primitive_restart_enabled && index0 == primitive_restart_index)
 		{
@@ -718,8 +718,8 @@ namespace
 
 	// TODO: Unify indexed and non indexed primitive expansion ?
 	template<typename T>
-	std::tuple<T, T> write_index_array_data_to_buffer_impl(gsl::span<T> dst,
-		gsl::span<const be_t<T>> src,
+	std::tuple<T, T> write_index_array_data_to_buffer_impl(gsl::multi_span<T> dst,
+		gsl::multi_span<const be_t<T>> src,
 		rsx::primitive_type draw_mode, bool restart_index_enabled, u32 restart_index, const std::vector<std::pair<u32, u32> > &first_count_arguments,
 		std::function<bool(rsx::primitive_type)> expands)
 	{
@@ -747,8 +747,8 @@ namespace
 	}
 }
 
-std::tuple<u32, u32> write_index_array_data_to_buffer(gsl::span<gsl::byte> dst,
-	gsl::span<const gsl::byte> src,
+std::tuple<u32, u32> write_index_array_data_to_buffer(gsl::multi_span<gsl::byte> dst,
+	gsl::multi_span<const gsl::byte> src,
 	rsx::index_array_type type, rsx::primitive_type draw_mode, bool restart_index_enabled, u32 restart_index, const std::vector<std::pair<u32, u32> > &first_count_arguments,
 	std::function<bool(rsx::primitive_type)> expands)
 {
@@ -756,10 +756,10 @@ std::tuple<u32, u32> write_index_array_data_to_buffer(gsl::span<gsl::byte> dst,
 	{
 	case rsx::index_array_type::u16:
 		return write_index_array_data_to_buffer_impl<u16>(as_span_workaround<u16>(dst),
-			gsl::as_span<const be_t<u16>>(src), draw_mode, restart_index_enabled, restart_index, first_count_arguments, expands);
+			gsl::as_multi_span<const be_t<u16>>(src), draw_mode, restart_index_enabled, restart_index, first_count_arguments, expands);
 	case rsx::index_array_type::u32:
 		return write_index_array_data_to_buffer_impl<u32>(as_span_workaround<u32>(dst),
-			gsl::as_span<const be_t<u32>>(src), draw_mode, restart_index_enabled, restart_index, first_count_arguments, expands);
+			gsl::as_multi_span<const be_t<u32>>(src), draw_mode, restart_index_enabled, restart_index, first_count_arguments, expands);
 	}
 	fmt::throw_exception("Unknown index type" HERE);
 }

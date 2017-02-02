@@ -268,7 +268,7 @@ namespace
 			VkDeviceSize offset_in_attrib_buffer = m_attrib_ring_info.alloc<256>(upload_size);
 			void *dst = m_attrib_ring_info.map(offset_in_attrib_buffer, upload_size);
 			
-			gsl::span<gsl::byte> dest_span(static_cast<gsl::byte*>(dst), upload_size);
+			gsl::multi_span<gsl::byte> dest_span(static_cast<gsl::byte*>(dst), upload_size);
 			write_vertex_array_data_to_buffer(dest_span, vertex_array.data, vertex_count, vertex_array.type, vertex_array.attribute_size, vertex_array.stride, real_element_size);
 
 			//Padding the vertex buffer should be done after the writes have been done
@@ -409,7 +409,7 @@ namespace
 			*/
 			u32 min_index, max_index;
 			std::tie(min_index, max_index) = write_index_array_data_to_buffer(
-				gsl::span<gsl::byte>(static_cast<gsl::byte*>(buf), index_count * type_size),
+				gsl::multi_span<gsl::byte>(static_cast<gsl::byte*>(buf), index_count * type_size),
 				command.raw_index_buffer, index_type,
 				rsx::method_registers.current_draw_clause.primitive,
 				rsx::method_registers.restart_index_enabled(),
