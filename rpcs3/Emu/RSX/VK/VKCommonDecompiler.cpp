@@ -137,14 +137,23 @@ namespace vk
 		OS << "	return result;\n";
 		OS << "}\n\n";
 
-		OS << "vec4 texture2DReconstruct(sampler2D tex, vec2 coord)\n";
+		OS << "vec4 decodeLinearDepth(float depth_value)\n";
 		OS << "{\n";
-		OS << "	float depth_value = texture(tex, coord.xy).r;\n";
 		OS << "	uint value = uint(depth_value * 16777215);\n";
 		OS << "	uint b = (value & 0xff);\n";
 		OS << "	uint g = (value >> 8) & 0xff;\n";
 		OS << "	uint r = (value >> 16) & 0xff;\n";
 		OS << "	return vec4(float(r)/255., float(g)/255., float(b)/255., 1.);\n";
+		OS << "}\n\n";
+
+		OS << "vec4 texture2DReconstruct(sampler2D tex, vec2 coord)\n";
+		OS << "{\n";
+		OS << "	return decodeLinearDepth(texture(tex, coord.xy).r);\n";
+		OS << "}\n\n";
+
+		OS << "vec4 texture2DReconstruct(sampler2DRect tex, vec2 coord)\n";
+		OS << "{\n";
+		OS << "	return decodeLinearDepth(texture(tex, coord.xy).r);\n";
 		OS << "}\n\n";
 	}
 

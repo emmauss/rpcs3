@@ -143,32 +143,32 @@ namespace
 	// But it makes more sense to compute exp of interpoled value than to interpolate exp values.
 	void insert_fog_declaration(std::stringstream & OS, rsx::fog_mode mode)
 	{
-		std::string fog_func = {};
 		switch (mode)
 		{
 		case rsx::fog_mode::linear:
-			fog_func = "fog_param1 * fog_c.x + (fog_param0 - 1.), fog_param1 * fog_c.x + (fog_param0 - 1.)";
+			OS << "	vec4 fogc = vec4(fog_param1 * fog_c.x + (fog_param0 - 1.), fog_param1 * fog_c.x + (fog_param0 - 1.), 0., 0.);\n";
 			break;
 		case rsx::fog_mode::exponential:
-			fog_func = "11.084 * (fog_param1 * fog_c.x + fog_param0 - 1.5), exp(11.084 * (fog_param1 * fog_c.x + fog_param0 - 1.5))";
+			OS << "	vec4 fogc = vec4(11.084 * (fog_param1 * fog_c.x + fog_param0 - 1.5), exp(11.084 * (fog_param1 * fog_c.x + fog_param0 - 1.5)), 0., 0.);\n";
 			break;
 		case rsx::fog_mode::exponential2:
-			fog_func = "4.709 * (fog_param1 * fog_c.x + fog_param0 - 1.5), exp(-pow(4.709 * (fog_param1 * fog_c.x + fog_param0 - 1.5)), 2.)";
+			OS << "	vec4 fogc = vec4(4.709 * (fog_param1 * fog_c.x + fog_param0 - 1.5), exp(-pow(4.709 * (fog_param1 * fog_c.x + fog_param0 - 1.5)), 2.), 0., 0.);\n";
 			break;
 		case rsx::fog_mode::linear_abs:
-			fog_func = "fog_param1 * abs(fog_c.x) + (fog_param0 - 1.), fog_param1 * abs(fog_c.x) + (fog_param0 - 1.)";
+			OS << "	vec4 fogc = vec4(fog_param1 * abs(fog_c.x) + (fog_param0 - 1.), fog_param1 * abs(fog_c.x) + (fog_param0 - 1.), 0., 0.);\n";
 			break;
 		case rsx::fog_mode::exponential_abs:
-			fog_func = "11.084 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5), exp(11.084 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5))";
+			OS << "	vec4 fogc = vec4(11.084 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5), exp(11.084 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5)), 0., 0.);\n";
 			break;
 		case rsx::fog_mode::exponential2_abs:
-			fog_func = "4.709 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5), exp(-pow(4.709 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5)), 2.)";
+			OS << "	vec4 fogc = vec4(4.709 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5), exp(-pow(4.709 * (fog_param1 * abs(fog_c.x) + fog_param0 - 1.5)), 2.), 0., 0.);\n";
 			break;
-
-		default: fog_func = "0.0, 0.0";
+		default:
+			OS << "	vec4 fogc = vec4(0.);\n";
+			return;
 		}
 
-		OS << "	vec4 fogc = clamp(vec4(" << fog_func << ", 0., 0.), 0., 1.);\n";
+		OS << "	fogc.y = clamp(fogc.y, 0., 1.);\n";
 	}
 
 	void insert_texture_scale(std::stringstream & OS, const RSXFragmentProgram& prog, int index)
