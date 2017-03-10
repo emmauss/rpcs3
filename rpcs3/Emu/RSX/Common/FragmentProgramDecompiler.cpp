@@ -148,6 +148,18 @@ std::string FragmentProgramDecompiler::AddTex()
 	return m_parr.AddParam(PF_PARAM_UNIFORM, sampler, std::string("tex") + std::to_string(dst.tex_num));
 }
 
+//Both of these were tested with a trace SoulCalibur IV title screen
+//Failure to catch causes infinite values since theres alot of rcp(0)
+std::string FragmentProgramDecompiler::NotZero(const std::string code)
+{
+	return "(max(abs(" + code + "), 1.E-10) * sign(" + code + "))";
+}
+
+std::string FragmentProgramDecompiler::NotZeroPositive(const std::string code)
+{
+	return "max(" + code + ", 1.E-10)";
+}
+
 std::string FragmentProgramDecompiler::NoOverflow(const std::string& code)
 {
 	//FP16 is expected to overflow alot easier at 0+-65504
@@ -370,10 +382,10 @@ bool FragmentProgramDecompiler::handle_sct(u32 opcode)
 	switch (opcode)
 	{
 	case RSX_FP_OPCODE_ADD: SetDst("($0 + $1)"); return true;
-	case RSX_FP_OPCODE_DIV: SetDst(NoOverflow("($0 / $1.xxxx)")); return true;
+	case RSX_FP_OPCODE_DIV: SetDst(NoOverflow("($0 / " + NotZero("$1.x") + ")")); return true;
 	// Note: DIVSQ is not IEEE compliant. divsq(0, 0) is 0 (Super Puzzle Fighter II Turbo HD Remix).
 	// sqrt(x, 0) might be equal to some big value (in absolute) whose sign is sign(x) but it has to be proven.
-	case RSX_FP_OPCODE_DIVSQ: SetDst("divsq_legacy($0, $1)"); return true;
+	case RSX_FP_OPCODE_DIVSQ: SetDst("($0 / sqrt(" + NotZeroPositive("$1.x") + "))"); return true;
 	case RSX_FP_OPCODE_DP2: SetDst(getFunction(FUNCTION::FUNCTION_DP2)); return true;
 	case RSX_FP_OPCODE_DP3: SetDst(getFunction(FUNCTION::FUNCTION_DP3)); return true;
 	case RSX_FP_OPCODE_DP4: SetDst(getFunction(FUNCTION::FUNCTION_DP4)); return true;
@@ -384,10 +396,10 @@ bool FragmentProgramDecompiler::handle_sct(u32 opcode)
 	case RSX_FP_OPCODE_MOV: SetDst("$0"); return true;
 	case RSX_FP_OPCODE_MUL: SetDst(NoOverflow("($0 * $1)")); return true;
 	// Note: It's higly likely that RCP is not IEEE compliant but a game that uses rcp(0) has to be found
-	case RSX_FP_OPCODE_RCP: SetDst("rcp_legacy($0)"); return true;
+	case RSX_FP_OPCODE_RCP: SetDst("(1. / " +  NotZero("$0") + ")"); return true;
 	// Note: RSQ is not IEEE compliant. rsq(0) is some big number (Silent Hill 3 HD)
 	// It is not know what happens if 0 is negative.
-	case RSX_FP_OPCODE_RSQ: SetDst("rsq_legacy($0)"); return true;
+	case RSX_FP_OPCODE_RSQ: SetDst("(1. / sqrt(" + NotZeroPositive("$0") + "))"); return true;
 	case RSX_FP_OPCODE_SEQ: SetDst(getFloatTypeName(4) + "(" + compareFunction(COMPARE::FUNCTION_SEQ, "$0", "$1") + ")"); return true;
 	case RSX_FP_OPCODE_SFL: SetDst(getFunction(FUNCTION::FUNCTION_SFL)); return true;
 	case RSX_FP_OPCODE_SGE: SetDst(getFloatTypeName(4) + "(" + compareFunction(COMPARE::FUNCTION_SGE, "$0", "$1") + ")"); return true;
@@ -406,10 +418,10 @@ bool FragmentProgramDecompiler::handle_scb(u32 opcode)
 	{
 	case RSX_FP_OPCODE_ADD: SetDst("($0 + $1)"); return true;
 	case RSX_FP_OPCODE_COS: SetDst("cos($0.xxxx)"); return true;
-	case RSX_FP_OPCODE_DIV: SetDst(NoOverflow("($0 / $1.x)")); return true;
+	case RSX_FP_OPCODE_DIV: SetDst(NoOverflow("($0 / " + NotZero("$1.x") + ")")); return true;
 	// Note: DIVSQ is not IEEE compliant. sqrt(0, 0) is 0 (Super Puzzle Fighter II Turbo HD Remix).
 	// sqrt(x, 0) might be equal to some big value (in absolute) whose sign is sign(x) but it has to be proven.
-	case RSX_FP_OPCODE_DIVSQ: SetDst("divsq_legacy($0, sqrt($1).xxxx)"); return true;
+	case RSX_FP_OPCODE_DIVSQ: SetDst("($0 / sqrt(" + NotZeroPositive("$1.x") + "))"); return true;
 	case RSX_FP_OPCODE_DP2: SetDst(getFunction(FUNCTION::FUNCTION_DP2)); return true;
 	case RSX_FP_OPCODE_DP3: SetDst(getFunction(FUNCTION::FUNCTION_DP3)); return true;
 	case RSX_FP_OPCODE_DP4: SetDst(getFunction(FUNCTION::FUNCTION_DP4)); return true;

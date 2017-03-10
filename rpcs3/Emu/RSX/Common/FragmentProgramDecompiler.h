@@ -46,7 +46,10 @@ class FragmentProgramDecompiler
 	std::string AddTex();
 	std::string Format(const std::string& code);
 
-	//TODO: MakeNotZero to catch zero denominators on div/rsq
+	//Prevent division by zero by catching denormals
+	//Simpler variant where input and output are expected to be positive
+	std::string NotZero(const std::string code);
+	std::string NotZeroPositive(const std::string code);
 	
 	//Prevents operations from overflowing the max range (tested with fp_dynamic3 autotest sample)
 	std::string NoOverflow(const std::string& code);
