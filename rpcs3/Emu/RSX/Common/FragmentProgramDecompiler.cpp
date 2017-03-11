@@ -150,12 +150,12 @@ std::string FragmentProgramDecompiler::AddTex()
 
 //Both of these were tested with a trace SoulCalibur IV title screen
 //Failure to catch causes infinite values since theres alot of rcp(0)
-std::string FragmentProgramDecompiler::NotZero(const std::string code)
+std::string FragmentProgramDecompiler::NotZero(const std::string& code)
 {
 	return "(max(abs(" + code + "), 1.E-10) * sign(" + code + "))";
 }
 
-std::string FragmentProgramDecompiler::NotZeroPositive(const std::string code)
+std::string FragmentProgramDecompiler::NotZeroPositive(const std::string& code)
 {
 	return "max(" + code + ", 1.E-10)";
 }
@@ -166,10 +166,19 @@ std::string FragmentProgramDecompiler::NoOverflow(const std::string& code)
 	//FP32 can still work upto 0+-3.4E38
 	//See http://http.download.nvidia.com/developer/Papers/2005/FP_Specials/FP_Specials.pdf
 
+	//Range clamping causes regressions in Soul Calibur IV
+	return code;
+
+#if 0
+	//TODO: Overflow fp16 values outside the accepted range
 	if (dst.fp16)
+	{
+		if (dst.saturate)
+			return code;
+
 		return "clamp(" + code + ", -65503., 65503.)";
-	else
-		return "clamp(" + code + ", -1E+10, 1E+10)";
+	}
+#endif
 }
 
 std::string FragmentProgramDecompiler::Format(const std::string& code)
