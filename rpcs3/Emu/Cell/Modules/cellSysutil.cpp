@@ -1962,35 +1962,12 @@ s32 cellSysutil_E186F9AC()
 	return CELL_OK;
 }
 
-s32 cellSysutil_B47470E1()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
-
-s32 cellSysutil_20957CD4()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
-
-s32 cellSysutil_75AA7373()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
-
 s32 cellSysutil_2D96313F()
 {
 	UNIMPLEMENTED_FUNC(cellSysutil);
 	return CELL_OK;
 }
 
-s32 cellSysutil_40719C8C()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
 
 s32 cellSysutil_0B8D63AE()
 {
@@ -1998,19 +1975,7 @@ s32 cellSysutil_0B8D63AE()
 	return CELL_OK;
 }
 
-s32 cellSysutil_35F7ED00()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
-
 s32 cellSysutil_40C7538E0()
-{
-	UNIMPLEMENTED_FUNC(cellSysutil);
-	return CELL_OK;
-}
-
-s32 cellSysutil_D3CDD694()
 {
 	UNIMPLEMENTED_FUNC(cellSysutil);
 	return CELL_OK;
@@ -2102,6 +2067,7 @@ DECLARE(ppu_module_manager::cellSysutil)("cellSysutil", []()
 
 	REG_FUNC(cellSysutil, _ZN4cxml8DocumentC1Ev);
 	REG_FUNC(cellSysutil, _ZN4cxml8DocumentD1Ev);
+    REG_FUNC(cellSysutil, _ZN4cxml8Document5ClearEv);
 	REG_FUNC(cellSysutil, _ZN4cxml8Document13CreateElementEPKciPNS_7ElementE);
 	REG_FUNC(cellSysutil, _ZN4cxml8Document14SetHeaderMagicEPKc);
 	REG_FUNC(cellSysutil, _ZN4cxml8Document16CreateFromBufferEPKvjb);
@@ -2122,17 +2088,21 @@ DECLARE(ppu_module_manager::cellSysutil)("cellSysutil", []()
 	REG_FUNC(cellSysutil, _ZN8cxmlutil7GetFileERKN4cxml7ElementEPKcPNS0_4FileE);
 
 	REG_FNID(cellSysutil, 0xE1EC7B6A, cellSysutil_E1EC7B6A);
+    REG_FNID(cellSysutil, 0xB47470E1, cellSysutil_B47470E1);
+    REG_FNID(cellSysutil, 0x20957CD4, cellSysutil_20957CD4);
+    REG_FNID(cellSysutil, 0x75AA7373, cellSysutil_75AA7373);
+    REG_FNID(cellSysutil, 0x35F7ED00, cellSysutil_35F7ED00);
+    REG_FNID(cellSysutil, 0xD3CDD694, cellSysutil_D3CDD694);
+    REG_FNID(cellSysutil, 0x40719C8C, cellSysutil_40719C8C);
+    REG_FNID(cellSysutil, 0xB59872EF, cellSysutil_B59872EF);
+
+    REG_FNID(cellSysutil, 0x7FC8F72C, cellSysutil_7FC8F72C);
+
 	REG_FNID(cellSysutil, 0xE186F9AC, cellSysutil_E186F9AC);
-	REG_FNID(cellSysutil, 0xB47470E1, cellSysutil_B47470E1);
-	REG_FNID(cellSysutil, 0x20957CD4, cellSysutil_20957CD4);
-	REG_FNID(cellSysutil, 0x75AA7373, cellSysutil_75AA7373);
 	REG_FNID(cellSysutil, 0x2D96313F, cellSysutil_2D96313F);
-	REG_FNID(cellSysutil, 0x40719C8C, cellSysutil_40719C8C);
 	REG_FNID(cellSysutil, 0x0B8D63AE, cellSysutil_0B8D63AE);
 
-	REG_FNID(cellSysutil, 0x35F7ED00, cellSysutil_35F7ED00); //The Fight
 	REG_FNID(cellSysutil, 0x40C7538E, cellSysutil_40C7538E0); //The Fight
-	REG_FNID(cellSysutil, 0xD3CDD694, cellSysutil_D3CDD694); //The Fight
 
 	REG_FNID(cellSysutil, 0x0633EDC2, cellSysutil_0633EDC2); //Killzone 3
 

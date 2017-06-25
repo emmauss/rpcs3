@@ -61,7 +61,7 @@ namespace rsx
 
         void set_context_dma_semaphore(thread* rsx, u32 _reg, u32 arg)
         {
-            LOG_ERROR(RSX, "dmaSemaphore: 0x%x", arg);
+            //LOG_ERROR(RSX, "dmaSemaphore: 0x%x", arg);
             rsx->nv406e_semaphore_addr = arg;
         }
 

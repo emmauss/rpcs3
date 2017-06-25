@@ -912,7 +912,7 @@ s32 sceNpManagerRegisterCallback(vm::ptr<SceNpManagerCallback> callback, vm::ptr
 		return SCE_NP_ERROR_INVALID_ARGUMENT;
 	}
 
-	return CELL_OK;
+	return -1;
 }
 
 s32 sceNpManagerUnregisterCallback()
