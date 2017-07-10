@@ -55,9 +55,11 @@
 rpcs3/git-version.h
 
 # Visual Studio Files
+.vs/*
 *.vspx
 *.psess
 *.VC.*
+*.vcxproj.user
 
 # Copyrighted files
 /bin/data/
@@ -85,3 +87,8 @@ CMakeCache.txt
 # cotire
 rpcs3/cotire/*
 rpcs3/rpcs3_*_cotire.cmake
+
+# Qt
+moc_*.cpp
+qrc_resources.cpp
+rpcs3_automoc.cpp

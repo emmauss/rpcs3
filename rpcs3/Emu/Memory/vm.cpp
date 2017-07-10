@@ -27,8 +27,25 @@
 
 namespace vm
 {
-	// Emulated virtual memory (4 GiB)
-	u8* const g_base_addr = static_cast<u8*>(memory_helper::reserve_memory(0x100000000));
+	static u8* memory_reserve_4GiB(std::uintptr_t addr = 0)
+	{
+		for (u64 addr = 0x100000000;; addr += 0x100000000)
+		{
+			if (auto ptr = utils::memory_reserve(0x100000000, (void*)addr))
+			{
+				return static_cast<u8*>(ptr);
+			}
+		}
+
+		// TODO: a condition to break loop
+		return static_cast<u8*>(utils::memory_reserve(0x100000000));
+	}
+
+	// Emulated virtual memory
+	u8* const g_base_addr = memory_reserve_4GiB(0);
+
+	// Auxiliary virtual memory for executable areas
+	u8* const g_exec_addr = memory_reserve_4GiB((std::uintptr_t)g_base_addr);
 
 	// Memory locations
 	std::vector<std::shared_ptr<block_t>> g_locations;
@@ -104,6 +121,14 @@ namespace vm
 		if (g_tls_locked && g_tls_locked->compare_and_swap_test(&cpu, nullptr))
 		{
 			cpu.state.test_and_set(cpu_flag::memory);
+		}
+	}
+
+	void temporary_unlock() noexcept
+	{
+		if (auto cpu = get_current_cpu_thread())
+		{
+			temporary_unlock(*cpu);
 		}
 	}
 
@@ -323,7 +348,8 @@ namespace vm
 			}
 		}
 
-		void* real_addr = vm::base(addr);
+		void* real_addr = g_base_addr + addr;
+		void* exec_addr = g_exec_addr + addr;
 
 #ifdef _WIN32
 		auto protection = flags & page_writable ? PAGE_READWRITE : (flags & page_readable ? PAGE_READONLY : PAGE_NOACCESS);
@@ -344,7 +370,7 @@ namespace vm
 
 	bool page_protect(u32 addr, u32 size, u8 flags_test, u8 flags_set, u8 flags_clear)
 	{
-		writer_lock lock(0);
+		writer_lock lock;
 
 		if (!size || (size | addr) % 4096)
 		{
@@ -430,7 +456,8 @@ namespace vm
 			}
 		}
 
-		void* real_addr = vm::base(addr);
+		void* real_addr = g_base_addr + addr;
+		void* exec_addr = g_exec_addr + addr;
 
 #ifdef _WIN32
 		verify(__func__), ::VirtualFree(real_addr, size, MEM_DECOMMIT);
@@ -596,7 +623,7 @@ namespace vm
 		size = ::align(size, 4096);
 
 		// return if addr or size is invalid
-		if (!size || size > this->size || addr < this->addr || addr + size - 1 >= this->addr + this->size - 1)
+		if (!size || size > this->size || addr < this->addr || addr + size - 1 > this->addr + this->size - 1)
 		{
 			return 0;
 		}
@@ -796,7 +823,8 @@ namespace vm
 	{
 		g_locations.clear();
 
-		memory_helper::free_reserved_memory(g_base_addr, 0x100000000);
+		utils::memory_decommit(g_base_addr, 0x100000000);
+		utils::memory_decommit(g_exec_addr, 0x100000000);
 	}
 }
 

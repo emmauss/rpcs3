@@ -1,7 +1,6 @@
 #ifdef _MSC_VER
 #include "stdafx.h"
 #include "stdafx_d3d12.h"
-#include "Utilities/Config.h"
 #include "D3D12RenderTargetSets.h"
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
@@ -11,10 +10,6 @@
 #include <D3D12.h>
 #include "D3D12GSRender.h"
 #include "D3D12Formats.h"
-
-extern cfg::bool_entry g_cfg_rsx_debug_output;
-extern cfg::bool_entry g_cfg_rsx_write_color_buffers;
-extern cfg::bool_entry g_cfg_rsx_write_depth_buffer;
 
 namespace
 {
@@ -125,8 +120,9 @@ void D3D12GSRender::clear_surface(u32 arg)
 
 		if (arg & 0x1)
 		{
-			u32 clear_depth = rsx::method_registers.z_clear_value();
-			u32 max_depth_value = get_max_depth_value(rsx::method_registers.surface_depth_fmt());
+			auto depth_format = rsx::method_registers.surface_depth_fmt();
+			u32 clear_depth = rsx::method_registers.z_clear_value(depth_format == rsx::surface_depth_format::z24s8);
+			u32 max_depth_value = get_max_depth_value(depth_format);
 			get_current_resource_storage().command_list->ClearDepthStencilView(m_rtts.current_ds_handle, D3D12_CLEAR_FLAG_DEPTH, clear_depth / (float)max_depth_value, 0,
 				1, &get_scissor(rsx::method_registers.scissor_origin_x(), rsx::method_registers.scissor_origin_y(), rsx::method_registers.scissor_width(), rsx::method_registers.scissor_height()));
 		}
@@ -157,7 +153,7 @@ void D3D12GSRender::clear_surface(u32 arg)
 	m_timers.draw_calls_duration += std::chrono::duration_cast<std::chrono::microseconds>(end_duration - start_duration).count();
 	m_timers.draw_calls_count++;
 
-	if (g_cfg_rsx_debug_output)
+	if (g_cfg.video.debug_output)
 	{
 		CHECK_HRESULT(get_current_resource_storage().command_list->Close());
 		m_command_queue->ExecuteCommandLists(1, (ID3D12CommandList**)get_current_resource_storage().command_list.GetAddressOf());
@@ -310,7 +306,7 @@ void D3D12GSRender::copy_render_target_to_dma_location()
 
 	bool need_transfer = false;
 
-	if (rsx::method_registers.surface_z_dma() && g_cfg_rsx_write_depth_buffer)
+	if (rsx::method_registers.surface_z_dma() && g_cfg.video.write_depth_buffer)
 	{
 		get_current_resource_storage().command_list->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(std::get<1>(m_rtts.m_bound_depth_stencil), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COPY_SOURCE));
 		get_current_resource_storage().command_list->CopyTextureRegion(&CD3DX12_TEXTURE_COPY_LOCATION(m_readback_resources.get_heap(), { depth_buffer_offset_in_heap,{ DXGI_FORMAT_R32_TYPELESS, (UINT)clip_w, (UINT)clip_h, 1, (UINT)depth_row_pitch } }), 0, 0, 0,
@@ -322,7 +318,7 @@ void D3D12GSRender::copy_render_target_to_dma_location()
 	}
 
 	size_t color_buffer_offset_in_heap[4];
-	if (g_cfg_rsx_write_color_buffers)
+	if (g_cfg.video.write_color_buffers)
 	{
 		for (u8 i : get_rtt_indexes(rsx::method_registers.surface_color_target()))
 		{
@@ -343,7 +339,7 @@ void D3D12GSRender::copy_render_target_to_dma_location()
 	//Wait for result
 	wait_for_command_queue(m_device.Get(), m_command_queue.Get());
 
-	if (address_z && g_cfg_rsx_write_depth_buffer)
+	if (address_z && g_cfg.video.write_depth_buffer)
 	{
 		auto ptr = vm::base(address_z);
 		char *depth_buffer = (char*)ptr;
@@ -363,7 +359,7 @@ void D3D12GSRender::copy_render_target_to_dma_location()
 		m_readback_resources.unmap();
 	}
 
-	if (g_cfg_rsx_write_color_buffers)
+	if (g_cfg.video.write_color_buffers)
 	{
 		size_t srcPitch = get_aligned_pitch(rsx::method_registers.surface_color(), clip_w);
 		size_t dstPitch = get_packed_pitch(rsx::method_registers.surface_color(), clip_w);

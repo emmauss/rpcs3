@@ -112,16 +112,6 @@ rsx::comparison_function rsx::to_comparison_function(u16 in)
 	fmt::throw_exception("Unknown comparison function 0x%x" HERE, in);
 }
 
-enum
-{
-	CELL_GCM_FOG_MODE_LINEAR = 0x2601,
-	CELL_GCM_FOG_MODE_EXP = 0x0800,
-	CELL_GCM_FOG_MODE_EXP2 = 0x0801,
-	CELL_GCM_FOG_MODE_EXP_ABS = 0x0802,
-	CELL_GCM_FOG_MODE_EXP2_ABS = 0x0803,
-	CELL_GCM_FOG_MODE_LINEAR_ABS = 0x0804,
-};
-
 rsx::fog_mode rsx::to_fog_mode(u32 in)
 {
 	switch (in)
@@ -665,8 +655,6 @@ rsx::surface_depth_format rsx::to_surface_depth_format(u8 in)
 	fmt::throw_exception("Unknown surface depth format 0x%x" HERE, in);
 }
 
-
-
 rsx::surface_antialiasing rsx::to_surface_antialiasing(u8 in)
 {
 	switch (in)
@@ -700,17 +688,6 @@ rsx::surface_color_format rsx::to_surface_color_format(u8 in)
 	}
 	fmt::throw_exception("Unknown surface color format 0x%x" HERE, in);
 }
-
-enum
-{
-	CELL_GCM_INVERT = 0x150A,
-	CELL_GCM_KEEP = 0x1E00,
-	CELL_GCM_REPLACE = 0x1E01,
-	CELL_GCM_INCR = 0x1E02,
-	CELL_GCM_DECR = 0x1E03,
-	CELL_GCM_INCR_WRAP = 0x8507,
-	CELL_GCM_DECR_WRAP = 0x8508,
-};
 
 rsx::stencil_op rsx::to_stencil_op(u16 in)
 {

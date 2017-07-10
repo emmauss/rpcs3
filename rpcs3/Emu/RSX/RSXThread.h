@@ -4,6 +4,7 @@
 #include <deque>
 #include <set>
 #include <mutex>
+#include <atomic>
 #include "GCM.h"
 #include "rsx_cache.h"
 #include "RSXTexture.h"
@@ -28,18 +29,6 @@ extern rsx::frame_capture_data frame_debug;
 
 namespace rsx
 {
-	namespace old_shaders_cache
-	{
-		enum class shader_language
-		{
-			glsl,
-			hlsl,
-		};
-	}
-}
-
-namespace rsx
-{
 	namespace limits
 	{
 		enum
@@ -51,54 +40,6 @@ namespace rsx
 			tiles_count = 15,
 			zculls_count = 8,
 			color_buffers_count = 4
-		};
-	}
-
-	namespace old_shaders_cache
-	{
-		struct decompiled_shader
-		{
-			std::string code;
-		};
-
-		struct finalized_shader
-		{
-			u64 ucode_hash;
-			std::string code;
-		};
-
-		template<typename Type, typename KeyType = u64, typename Hasher = std::hash<KeyType>>
-		struct cache
-		{
-		private:
-			std::unordered_map<KeyType, Type, Hasher> m_entries;
-
-		public:
-			const Type* find(u64 key) const
-			{
-				auto found = m_entries.find(key);
-
-				if (found == m_entries.end())
-					return nullptr;
-
-				return &found->second;
-			}
-
-			void insert(KeyType key, const Type &shader)
-			{
-				m_entries.insert({ key, shader });
-			}
-		};
-
-		struct shaders_cache
-		{
-			cache<decompiled_shader> decompiled_fragment_shaders;
-			cache<decompiled_shader> decompiled_vertex_shaders;
-			cache<finalized_shader> finailized_fragment_shaders;
-			cache<finalized_shader> finailized_vertex_shaders;
-
-			void load(const std::string &path, shader_language lang);
-			void load(shader_language lang);
 		};
 	}
 
@@ -168,11 +109,10 @@ namespace rsx
 
 	protected:
 		std::stack<u32> m_call_stack;
+		std::array<push_buffer_vertex_info, 16> vertex_push_buffers;
+		std::vector<u32> element_push_buffer;
 
 	public:
-		old_shaders_cache::shaders_cache shaders_cache;
-		rsx::programs_cache programs_cache;
-
 		CellGcmControl* ctrl = nullptr;
 
 		Timer timer_sync;
@@ -190,7 +130,7 @@ namespace rsx
 		std::shared_ptr<class ppu_thread> intr_thread;
 
 		u32 ioAddress, ioSize;
-		int flip_status;
+		u32 flip_status;
 		int flip_mode;
 		int debug_level;
 		int frequency_mode;
@@ -209,6 +149,12 @@ namespace rsx
 		bool m_rtts_dirty;
 		bool m_transform_constants_dirty;
 		bool m_textures_dirty[16];
+		bool m_vertex_attribs_changed;
+		bool m_index_buffer_changed;
+
+	protected:
+		s32 m_skip_frame_ctr = 0;
+		bool skip_frame = false;
 	protected:
 		std::array<u32, 4> get_color_surface_addresses() const;
 		u32 get_zeta_surface_address() const;
@@ -232,6 +178,8 @@ namespace rsx
 
 	public:
 		std::set<u32> m_used_gcm_commands;
+		bool invalid_command_interrupt_raised = false;
+		bool in_begin_end = false;
 
 	protected:
 		thread();
@@ -256,17 +204,67 @@ namespace rsx
 
 		virtual void on_init_rsx() = 0;
 		virtual void on_init_thread() = 0;
-		virtual bool do_method(u32 cmd, u32 value) { return false; }
+		virtual bool do_method(u32 /*cmd*/, u32 /*value*/) { return false; }
 		virtual void flip(int buffer) = 0;
 		virtual u64 timestamp() const;
-		virtual bool on_access_violation(u32 address, bool is_writing) { return false; }
+		virtual bool on_access_violation(u32 /*address*/, bool /*is_writing*/) { return false; }
 
 		gsl::span<const gsl::byte> get_raw_index_array(const std::vector<std::pair<u32, u32> >& draw_indexed_clause) const;
 		gsl::span<const gsl::byte> get_raw_vertex_buffer(const rsx::data_array_format_info&, u32 base_offset, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;
 
-		std::vector<std::variant<vertex_array_buffer, vertex_array_register, empty_vertex_array>> get_vertex_buffers(const rsx::rsx_state& state, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;
+		std::vector<std::variant<vertex_array_buffer, vertex_array_register, empty_vertex_array>>
+		get_vertex_buffers(const rsx::rsx_state& state, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;
+		
 		std::variant<draw_array_command, draw_indexed_array_command, draw_inlined_array>
 		get_draw_command(const rsx::rsx_state& state) const;
+
+		/*
+		* Immediate mode rendering requires a temp push buffer to hold attrib values
+		* Appends a value to the push buffer (currently only supports 32-wide types)
+		*/
+		void append_to_push_buffer(u32 attribute, u32 size, u32 subreg_index, vertex_base_type type, u32 value);
+		u32 get_push_buffer_vertex_count() const;
+
+		void append_array_element(u32 index);
+		u32 get_push_buffer_index_count() const;
+
+	protected:
+		//Save draw call parameters to detect instanced renders
+		std::pair<u32, u32> m_last_first_count;
+		rsx::draw_command m_last_command;
+
+		bool is_probable_instanced_draw();
+
+	public:
+		//MT vertex streaming
+		struct upload_stream_packet
+		{
+			std::function<void(void *, rsx::vertex_base_type, u8, u32)> post_upload_func;
+			gsl::span<const gsl::byte> src_span;
+			gsl::span<gsl::byte> dst_span;
+			rsx::vertex_base_type type;
+			u32 vector_width;
+			u32 src_stride;
+			u8 dst_stride;
+		};
+
+		struct upload_stream_task
+		{
+			std::vector<upload_stream_packet> packets;
+			std::atomic<int> remaining_packets = { 0 };
+			std::atomic<int> ready_threads = { 0 };
+			std::atomic<u32> vertex_count;
+
+			std::vector<std::shared_ptr<thread_ctrl>> processing_threads;
+		};
+
+		upload_stream_task m_vertex_streaming_task;
+		void post_vertex_stream_to_upload(gsl::span<const gsl::byte> src, gsl::span<gsl::byte> dst, rsx::vertex_base_type type,
+				u32 vector_element_count, u32 attribute_src_stride, u8 dst_stride,
+			std::function<void(void *, rsx::vertex_base_type, u8, u32)> callback);
+		void start_vertex_upload_task(u32 vertex_count);
+		void wait_for_vertex_upload_task();
+		bool vertex_upload_task_ready();
 
 	private:
 		std::mutex m_mtx_task;
@@ -291,9 +289,15 @@ namespace rsx
 		/**
 		 * Fill buffer with 4x4 scale offset matrix.
 		 * Vertex shader's position is to be multiplied by this matrix.
-		 * if is_d3d is set, the matrix is modified to use d3d convention.
+		 * if flip_y is set, the matrix is modified to use d3d convention.
 		 */
-		void fill_scale_offset_data(void *buffer, bool is_d3d = true) const;
+		void fill_scale_offset_data(void *buffer, bool flip_y) const;
+
+		/**
+		 * Fill buffer with user clip information
+		*/
+
+		void fill_user_clip_data(void *buffer) const;
 
 		/**
 		* Fill buffer with vertex program constants.
@@ -332,7 +336,8 @@ namespace rsx
 
 		virtual std::pair<std::string, std::string> get_programs() const { return std::make_pair("", ""); };
 
-		struct raw_program get_raw_program() const;
+		virtual bool scaled_image_from_memory(blit_src_info& /*src_info*/, blit_dst_info& /*dst_info*/, bool /*interpolate*/){ return false;  }
+
 	public:
 		void reset();
 		void init(const u32 ioAddress, const u32 ioSize, const u32 ctrlAddress, const u32 localAddress);

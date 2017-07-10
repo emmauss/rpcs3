@@ -64,48 +64,9 @@ s32 cellPadClearBuf(u32 port_no)
 
 	//~399 on sensor y is a level non moving controller
 	pad.m_sensor_y = 399;
-	pad.m_sensor_x = pad.m_sensor_z = pad.m_sensor_g = 0;
+	pad.m_sensor_x = pad.m_sensor_z = pad.m_sensor_g = 512;
 	
 	return CELL_OK;
-}
-
-s32 cellPadPeriphGetInfo(vm::ptr<CellPadPeriphInfo> info)
-{
-	sys_io.todo("cellPadPeriphGetInfo(info=*0x%x)", info);
-
-	const auto handler = fxm::get<PadHandlerBase>();
-
-	if (!handler)
-		return CELL_PAD_ERROR_UNINITIALIZED;
-
-	const PadInfo& rinfo = handler->GetInfo();
-
-	info->max_connect = rinfo.max_connect;
-	info->now_connect = rinfo.now_connect;
-	info->system_info = rinfo.system_info;
-
-	std::vector<Pad>& pads = handler->GetPads();
-
-	// TODO: Support other types of controllers
-	for (u32 i = 0; i < CELL_PAD_MAX_PORT_NUM; ++i)
-	{
-		if (i >= pads.size())
-			break;
-
-		info->port_status[i] = pads[i].m_port_status;
-		info->port_setting[i] = pads[i].m_port_setting;
-		info->device_capability[i] = pads[i].m_device_capability;
-		info->device_type[i] = pads[i].m_device_type;
-		info->pclass_type[i] = CELL_PAD_PCLASS_TYPE_STANDARD;
-		info->pclass_profile[i] = 0x0;
-	}
-
-	return CELL_OK;
-}
-
-s32 cellPadPeriphGetData()
-{
-	fmt::throw_exception("Unimplemented" HERE);
 }
 
 s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data)
@@ -221,7 +182,7 @@ s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data)
 		}
 	}
 
-	for (const AnalogStick& stick : pads[port_no].m_sticks)
+	for (const AnalogStick& stick : pad.m_sticks)
 	{
 		switch (stick.m_offset)
 		{
@@ -244,15 +205,39 @@ s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data)
 		default: break;
 		}
 	}
+
+	for (const AnalogSensor& sensor : pad.m_sensors)
+	{
+		switch (sensor.m_offset)
+		{
+		case CELL_PAD_BTN_OFFSET_SENSOR_X:
+			if (pad.m_sensor_x != sensor.m_value) btnChanged = true;
+			pad.m_sensor_x = sensor.m_value;
+			break;
+		case CELL_PAD_BTN_OFFSET_SENSOR_Y:
+			if (pad.m_sensor_y != sensor.m_value) btnChanged = true;
+			pad.m_sensor_y = sensor.m_value;
+			break;
+		case CELL_PAD_BTN_OFFSET_SENSOR_Z:
+			if (pad.m_sensor_z != sensor.m_value) btnChanged = true;
+			pad.m_sensor_z = sensor.m_value;
+			break;
+		case CELL_PAD_BTN_OFFSET_SENSOR_G:
+			if (pad.m_sensor_g != sensor.m_value) btnChanged = true;
+			pad.m_sensor_g = sensor.m_value;
+			break;
+		default: break;
+		}
+	}
+
 	if (d1Initial != pad.m_digital_1 || d2Initial != pad.m_digital_2)
 	{
 		btnChanged = true;
 	}
 
 	//not sure if this should officially change with capabilities/portsettings :(
-	data->len = CELL_PAD_MAX_CODES;
+	data->len = 24;
 
-	//report len 0 if nothing changed and if we havent recently cleared buffer
 	if (pad.m_buffer_cleared)
 	{
 		pad.m_buffer_cleared = false;
@@ -261,7 +246,9 @@ s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data)
 	{
 		data->len = 0;
 	}
-
+	data->button[0] = 0x0; // always 0
+	// bits 15-8 reserved, 7-4 = 0x7, 3-0: data->len/2;
+	data->button[1] = (0x7 << 4) | std::min(data->len / 2, 15) & 0xF;
 	//lets still send new data anyway, not sure whats expected still
 	data->button[CELL_PAD_BTN_OFFSET_DIGITAL1]       = pad.m_digital_1;
 	data->button[CELL_PAD_BTN_OFFSET_DIGITAL2]       = pad.m_digital_2;
@@ -289,6 +276,63 @@ s32 cellPadGetData(u32 port_no, vm::ptr<CellPadData> data)
 	return CELL_OK;
 }
 
+s32 cellPadPeriphGetInfo(vm::ptr<CellPadPeriphInfo> info)
+{
+	sys_io.trace("cellPadPeriphGetInfo(info=*0x%x)", info);
+
+	const auto handler = fxm::get<PadHandlerBase>();
+
+	if (!handler)
+		return CELL_PAD_ERROR_UNINITIALIZED;
+
+	const PadInfo& rinfo = handler->GetInfo();
+
+	std::memset(info.get_ptr(), 0, sizeof(CellPadPeriphInfo));
+
+	info->max_connect = rinfo.max_connect;
+	info->now_connect = rinfo.now_connect;
+	info->system_info = rinfo.system_info;
+
+	std::vector<Pad>& pads = handler->GetPads();
+
+	// TODO: Support other types of controllers
+	for (u32 i = 0; i < CELL_PAD_MAX_PORT_NUM; ++i)
+	{
+		if (i >= pads.size())
+			break;
+
+		info->port_status[i] = pads[i].m_port_status;
+		info->port_setting[i] = pads[i].m_port_setting;
+		info->device_capability[i] = pads[i].m_device_capability;
+		info->device_type[i] = pads[i].m_device_type;
+		info->pclass_type[i] = CELL_PAD_PCLASS_TYPE_STANDARD;
+		info->pclass_profile[i] = 0x0;
+	}
+
+	return CELL_OK;
+}
+
+s32 cellPadPeriphGetData(u32 port_no, vm::ptr<CellPadPeriphData> data)
+{
+	sys_io.trace("cellPadPeriphGetData(port_no=%d, data=*0x%x)", port_no, data);
+	const auto handler = fxm::get<PadHandlerBase>();
+
+	if (!handler)
+		return CELL_PAD_ERROR_UNINITIALIZED;
+
+	const PadInfo& rinfo = handler->GetInfo();
+
+	if (port_no >= rinfo.max_connect)
+		return CELL_PAD_ERROR_INVALID_PARAMETER;
+	if (port_no >= rinfo.now_connect)
+		return CELL_PAD_ERROR_NO_DEVICE;
+
+	// todo: support for 'unique' controllers, which goes in offsets 24+ in padData
+	data->pclass_type = CELL_PAD_PCLASS_TYPE_STANDARD;
+	data->pclass_profile = 0x0;
+	return cellPadGetData(port_no, vm::get_addr(&data->cellpad_data));
+}
+
 s32 cellPadGetRawData(u32 port_no, vm::ptr<CellPadData> data)
 {
 	fmt::throw_exception("Unimplemented" HERE);
@@ -310,10 +354,19 @@ s32 cellPadGetDataExtra(u32 port_no, vm::ptr<u32> device_type, vm::ptr<CellPadDa
 	if (port_no >= rinfo.now_connect)
 		return CELL_PAD_ERROR_NO_DEVICE;
 
-	return CELL_OK;
+	// TODO: This is used just to get data from a BD/CEC remote,
+	// but if the port isnt a remote, device type is set to 0 and just regular cellPadGetData is returned
+
+	*device_type = 0;
+
+	// set BD data before just incase
+	data->button[24] = 0x0;
+	data->button[25] = 0x0;
+
+	return cellPadGetData(port_no, data);
 }
 
-s32 cellPadSetActDirect(u32 port_no, vm::ptr<struct CellPadActParam> param)
+s32 cellPadSetActDirect(u32 port_no, vm::ptr<CellPadActParam> param)
 {
 	sys_io.trace("cellPadSetActDirect(port_no=%d, param=*0x%x)", port_no, param);
 
@@ -329,6 +382,8 @@ s32 cellPadSetActDirect(u32 port_no, vm::ptr<struct CellPadActParam> param)
 	if (port_no >= rinfo.now_connect)
 		return CELL_PAD_ERROR_NO_DEVICE;
 
+	handler->SetRumble(port_no, param->motor[1], param->motor[0] > 0);
+
 	return CELL_OK;
 }
 
@@ -341,12 +396,13 @@ s32 cellPadGetInfo(vm::ptr<CellPadInfo> info)
 	if (!handler)
 		return CELL_PAD_ERROR_UNINITIALIZED;
 
+	std::memset(info.get_ptr(), 0, sizeof(CellPadInfo));
+
 	const PadInfo& rinfo = handler->GetInfo();
 	info->max_connect = rinfo.max_connect;
 	info->now_connect = rinfo.now_connect;
 	info->system_info = rinfo.system_info;
 
-	//Can't have this as const, we need to reset Assign Changes Flag here
 	std::vector<Pad>& pads = handler->GetPads();
 
 	for (u32 i=0; i<CELL_MAX_PADS; ++i)
@@ -371,6 +427,8 @@ s32 cellPadGetInfo2(vm::ptr<CellPadInfo2> info)
 
 	if (!handler)
 		return CELL_PAD_ERROR_UNINITIALIZED;
+
+	std::memset(info.get_ptr(), 0, sizeof(CellPadInfo2));
 
 	const PadInfo& rinfo = handler->GetInfo();
 	info->max_connect = rinfo.max_connect;

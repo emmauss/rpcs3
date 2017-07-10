@@ -1,7 +1,6 @@
 #ifdef _MSC_VER
 #include "stdafx.h"
 #include "stdafx_d3d12.h"
-#include "Utilities/Config.h"
 #include "D3D12PipelineState.h"
 #include "D3D12GSRender.h"
 #include "D3D12Formats.h"
@@ -9,8 +8,6 @@
 #include "../rsx_utils.h"
 
 #define TO_STRING(x) #x
-
-extern cfg::bool_entry g_cfg_rsx_debug_output;
 
 extern pD3DCompile wrapD3DCompile;
 
@@ -20,7 +17,7 @@ void Shader::Compile(const std::string &code, SHADER_TYPE st)
 	HRESULT hr;
 	ComPtr<ID3DBlob> errorBlob;
 	UINT compileFlags;
-	if (g_cfg_rsx_debug_output)
+	if (g_cfg.video.debug_output)
 		compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 	else
 		compileFlags = 0;
@@ -122,6 +119,9 @@ void D3D12GSRender::load_program()
 				case D3D12_BLEND_INV_BLEND_FACTOR:
 					return D3D12_BLEND_ZERO;
 				}
+
+				LOG_ERROR(RSX, "No suitable conversion defined for blend factor 0x%X" HERE, (u32)in);
+				return in;
 			};
 
 			d3d_sfactor_rgb = flatten_d3d12_factor(d3d_sfactor_rgb);
@@ -291,7 +291,10 @@ void D3D12GSRender::load_program()
 
 	if (rsx::method_registers.restart_index_enabled())
 	{
-		rsx::index_array_type index_type = rsx::method_registers.index_type();
+		rsx::index_array_type index_type = rsx::method_registers.current_draw_clause.is_immediate_draw?
+			rsx::index_array_type::u32:
+			rsx::method_registers.index_type();
+
 		if (index_type == rsx::index_array_type::u32)
 		{
 			prop.CutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;

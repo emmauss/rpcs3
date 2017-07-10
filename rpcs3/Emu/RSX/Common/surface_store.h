@@ -93,7 +93,7 @@ namespace rsx
 			auto It = m_render_targets_storage.find(address);
 			// TODO: Fix corner cases
 			// This doesn't take overlapping surface(s) into account.
-			// Invalidated surface(s) should also copy their content to the new resources.
+			surface_type old_surface = nullptr;
 			if (It != m_render_targets_storage.end())
 			{
 				surface_storage_type &rtt = It->second;
@@ -102,11 +102,13 @@ namespace rsx
 					Traits::prepare_rtt_for_drawing(command_list, Traits::get(rtt));
 					return Traits::get(rtt);
 				}
+
+				old_surface = Traits::get(rtt);
 				invalidated_resources.push_back(std::move(rtt));
 				m_render_targets_storage.erase(address);
 			}
 
-			m_render_targets_storage[address] = Traits::create_new_surface(address, color_format, width, height, std::forward<Args>(extra_params)...);
+			m_render_targets_storage[address] = Traits::create_new_surface(address, color_format, width, height, old_surface, std::forward<Args>(extra_params)...);
 			return Traits::get(m_render_targets_storage[address]);
 		}
 
@@ -117,6 +119,7 @@ namespace rsx
 			surface_depth_format depth_format, size_t width, size_t height,
 			Args&&... extra_params)
 		{
+			surface_type old_surface = nullptr;
 			auto It = m_depth_stencil_storage.find(address);
 			if (It != m_depth_stencil_storage.end())
 			{
@@ -126,11 +129,13 @@ namespace rsx
 					Traits::prepare_ds_for_drawing(command_list, Traits::get(ds));
 					return Traits::get(ds);
 				}
+
+				old_surface = Traits::get(ds);
 				invalidated_resources.push_back(std::move(ds));
 				m_depth_stencil_storage.erase(address);
 			}
 
-			m_depth_stencil_storage[address] = Traits::create_new_surface(address, depth_format, width, height, std::forward<Args>(extra_params)...);
+			m_depth_stencil_storage[address] = Traits::create_new_surface(address, depth_format, width, height, old_surface, std::forward<Args>(extra_params)...);
 			return Traits::get(m_depth_stencil_storage[address]);
 		}
 	public:
@@ -173,9 +178,12 @@ namespace rsx
 			// Same for depth buffer
 			if (std::get<1>(m_bound_depth_stencil) != nullptr)
 				Traits::prepare_ds_for_sampling(command_list, std::get<1>(m_bound_depth_stencil));
+			
 			m_bound_depth_stencil = std::make_tuple(0, nullptr);
+			
 			if (!address_z)
 				return;
+
 			m_bound_depth_stencil = std::make_tuple(address_z,
 				bind_address_as_depth_stencil(command_list, address_z, depth_format, clip_width, clip_height, std::forward<Args>(extra_params)...));
 		}
@@ -341,6 +349,19 @@ namespace rsx
 			copy_pitched_src_to_dst(dest, gsl::as_span<const u8>(stencil_buffer_raw_src), align(width, 256), width, height);
 			Traits::unmap_downloaded_buffer(stencil_data, std::forward<Args&&>(args)...);
 			return result;
+		}
+
+		/**
+		 * Invalidates cached surface data and marks surface contents as deleteable
+		 * Called at the end of a frame (workaround, need to find the proper invalidate command)
+		 */
+		void invalidate_surface_cache_data(command_list_type command_list)
+		{
+			for (auto &rtt : m_render_targets_storage)
+				Traits::invalidate_rtt_surface_contents(command_list, Traits::get(std::get<1>(rtt)));
+
+			for (auto &ds : m_depth_stencil_storage)
+				Traits::invalidate_depth_surface_contents(command_list, Traits::get(std::get<1>(ds)));
 		}
 	};
 }

@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <utility>
 #include <chrono>
+#include <array>
 
 // Assume little-endian
 #define IS_LE_MACHINE 1
@@ -45,9 +46,6 @@
 // Return 32 bit alignof() to avoid widening/narrowing conversions with size_t
 #define ALIGN_32(...) static_cast<u32>(alignof(__VA_ARGS__))
 
-// Return 32 bit offsetof()
-#define OFFSET_32(type, x) static_cast<u32>(reinterpret_cast<std::uintptr_t>(&reinterpret_cast<const volatile char&>(reinterpret_cast<type*>(0ull)->x)))
-
 #define CONCATENATE_DETAIL(x, y) x ## y
 #define CONCATENATE(x, y) CONCATENATE_DETAIL(x, y)
 
@@ -71,6 +69,8 @@ using uint   = unsigned int;
 using ulong  = unsigned long;
 using ullong = unsigned long long;
 using llong  = long long;
+
+using uptr = std::uintptr_t;
 
 using u8  = std::uint8_t;
 using u16 = std::uint16_t;
@@ -449,6 +449,71 @@ constexpr T align(const T& value, ullong align)
 {
 	return static_cast<T>((value + (align - 1)) & ~(align - 1));
 }
+
+template <typename T, typename T2>
+inline u32 offset32(T T2::*const mptr)
+{
+#ifdef _MSC_VER
+	static_assert(sizeof(mptr) == sizeof(u32), "Invalid pointer-to-member size");
+	return reinterpret_cast<const u32&>(mptr);
+#elif __GNUG__
+	static_assert(sizeof(mptr) == sizeof(std::size_t), "Invalid pointer-to-member size");
+	return static_cast<u32>(reinterpret_cast<const std::size_t&>(mptr));
+#else
+	static_assert(sizeof(mptr) == 0, "Invalid pointer-to-member size");
+#endif
+}
+
+template <typename T>
+struct offset32_array
+{
+	static_assert(std::is_array<T>::value, "Invalid pointer-to-member type (array expected)");
+
+	template <typename Arg>
+	static inline u32 index32(const Arg& arg)
+	{
+		return SIZE_32(std::remove_extent_t<T>) * static_cast<u32>(arg);
+	}
+};
+
+template <typename T, std::size_t N>
+struct offset32_array<std::array<T, N>>
+{
+	template <typename Arg>
+	static inline u32 index32(const Arg& arg)
+	{
+		return SIZE_32(T) * static_cast<u32>(arg);
+	}
+};
+
+template <typename Arg>
+struct offset32_detail;
+
+template <typename T, typename T2, typename Arg, typename... Args>
+inline u32 offset32(T T2::*const mptr, const Arg& arg, const Args&... args)
+{
+	return offset32_detail<Arg>::offset32(mptr, arg, args...);
+}
+
+template <typename Arg>
+struct offset32_detail
+{
+	template <typename T, typename T2, typename... Args>
+	static inline u32 offset32(T T2::*const mptr, const Arg& arg, const Args&... args)
+	{
+		return ::offset32(mptr, args...) + offset32_array<T>::index32(arg);
+	}
+};
+
+template <typename T3, typename T4>
+struct offset32_detail<T3 T4::*>
+{
+	template <typename T, typename T2, typename... Args>
+	static inline u32 offset32(T T2::*const mptr, T3 T4::*const mptr2, const Args&... args)
+	{
+		return ::offset32(mptr) + ::offset32(mptr2, args...);
+	}
+};
 
 inline u32 cntlz32(u32 arg, bool nonzero = false)
 {
@@ -909,45 +974,85 @@ inline void busy_wait(std::size_t count = 100)
 // Rotate helpers
 #if defined(__GNUG__)
 
-inline u8 rol8(const u8 x, const u8 n)
+inline u8 rol8(u8 x, u8 n)
 {
 	u8 result = x;
 	__asm__("rolb %[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
 	return result;
 }
 
-inline u16 rol16(const u16 x, const u16 n)
+inline u8 ror8(u8 x, u8 n)
+{
+	u8 result = x;
+	__asm__("rorb %[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
+	return result;
+}
+
+inline u16 rol16(u16 x, u16 n)
 {
 	u16 result = x;
 	__asm__("rolw %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
 	return result;
 }
 
-inline u32 rol32(const u32 x, const u32 n)
+inline u16 ror16(u16 x, u16 n)
+{
+	u16 result = x;
+	__asm__("rorw %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
+	return result;
+}
+
+inline u32 rol32(u32 x, u32 n)
 {
 	u32 result = x;
 	__asm__("roll %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
 	return result;
 }
 
-inline u64 rol64(const u64 x, const u64 n)
+inline u32 ror32(u32 x, u32 n)
+{
+	u32 result = x;
+	__asm__("rorl %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
+	return result;
+}
+
+inline u64 rol64(u64 x, u64 n)
 {
 	u64 result = x;
 	__asm__("rolq %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
 	return result;
 }
 
-inline u64 ror64(const u64 x, const u64 n)
+inline u64 ror64(u64 x, u64 n)
 {
 	u64 result = x;
 	__asm__("rorq %b[n], %[result]" : [result] "+g" (result) : [n] "c" (n));
 	return result;
 }
 
+inline u64 umulh64(u64 a, u64 b)
+{
+	u64 result;
+	__asm__("mulq %[b]" : "=d" (result) : [a] "a" (a), [b] "rm" (b));
+	return result;
+}
+
+inline s64 mulh64(s64 a, s64 b)
+{
+	s64 result;
+	__asm__("imulq %[b]" : "=d" (result) : [a] "a" (a), [b] "rm" (b));
+	return result;
+}
+
 #elif defined(_MSC_VER)
-inline u8 rol8(const u8 x, const u8 n) { return _rotl8(x, n); }
-inline u16 rol16(const u16 x, const u16 n) { return _rotl16(x, (u8)n); }
-inline u32 rol32(const u32 x, const u32 n) { return _rotl(x, (int)n); }
-inline u64 rol64(const u64 x, const u64 n) { return _rotl64(x, (int)n); }
-inline u64 ror64(const u64 x, const u64 n) { return _rotr64(x, (int)n); }
+inline u8 rol8(u8 x, u8 n) { return _rotl8(x, n); }
+inline u8 ror8(u8 x, u8 n) { return _rotr8(x, n); }
+inline u16 rol16(u16 x, u16 n) { return _rotl16(x, (u8)n); }
+inline u16 ror16(u16 x, u16 n) { return _rotr16(x, (u8)n); }
+inline u32 rol32(u32 x, u32 n) { return _rotl(x, (int)n); }
+inline u32 ror32(u32 x, u32 n) { return _rotr(x, (int)n); }
+inline u64 rol64(u64 x, u64 n) { return _rotl64(x, (int)n); }
+inline u64 ror64(u64 x, u64 n) { return _rotr64(x, (int)n); }
+inline u64 umulh64(u64 x, u64 y) { return __umulh(x, y); }
+inline s64 mulh64(s64 x, s64 y) { return __mulh(x, y); }
 #endif

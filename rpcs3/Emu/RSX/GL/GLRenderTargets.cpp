@@ -1,12 +1,7 @@
 #include "stdafx.h"
-#include "Utilities/Config.h"
 #include "../rsx_methods.h"
 #include "GLGSRender.h"
-
-extern cfg::bool_entry g_cfg_rsx_write_color_buffers;
-extern cfg::bool_entry g_cfg_rsx_write_depth_buffer;
-extern cfg::bool_entry g_cfg_rsx_read_color_buffers;
-extern cfg::bool_entry g_cfg_rsx_read_depth_buffer;
+#include "Emu/System.h"
 
 color_format rsx::internals::surface_color_format_to_gl(rsx::surface_color_format color_format)
 {
@@ -62,7 +57,10 @@ depth_format rsx::internals::surface_depth_format_to_gl(rsx::surface_depth_forma
 	default:
 		LOG_ERROR(RSX, "Surface depth buffer: Unsupported surface depth format (0x%x)", (u32)depth_format);
 	case rsx::surface_depth_format::z24s8:
-		return{ ::gl::texture::type::uint_24_8, ::gl::texture::format::depth_stencil, ::gl::texture::internal_format::depth24_stencil8 };
+		if (g_cfg.video.force_high_precision_z_buffer && ::gl::get_driver_caps().ARB_depth_buffer_float_supported)
+			return{ ::gl::texture::type::float32_uint8, ::gl::texture::format::depth_stencil, ::gl::texture::internal_format::depth32f_stencil8 };
+		else
+			return{ ::gl::texture::type::uint_24_8, ::gl::texture::format::depth_stencil, ::gl::texture::internal_format::depth24_stencil8 };
 	}
 }
 
@@ -167,6 +165,12 @@ void GLGSRender::init_buffers(bool skip_reading)
 	const u16 clip_horizontal = rsx::method_registers.surface_clip_width();
 	const u16 clip_vertical = rsx::method_registers.surface_clip_height();
 
+	if (clip_horizontal == 0 || clip_vertical == 0)
+	{
+		LOG_ERROR(RSX, "Invalid framebuffer setup, w=%d, h=%d", clip_horizontal, clip_vertical);
+		framebuffer_status_valid = false;
+	}
+
 	const auto pitchs = get_pitchs();
 	const auto surface_format = rsx::method_registers.surface_color();
 	const auto depth_format = rsx::method_registers.surface_depth_fmt();
@@ -191,13 +195,11 @@ void GLGSRender::init_buffers(bool skip_reading)
 
 			//Verify pitch given is correct if pitch <= 64 (especially 64)
 			if (pitchs[i] <= 64)
-			{
-				verify(HERE), pitchs[i] == 64;
-				
+			{	
 				const u16 native_pitch = std::get<1>(m_rtts.m_bound_render_targets[i])->get_native_pitch();
 				if (native_pitch > pitchs[i])
 				{
-					LOG_WARNING(RSX, "Bad color surface pitch given: surface_width=%d, format=%d, pitch=%d, native_pitch=%d",
+					LOG_TRACE(RSX, "Bad color surface pitch given: surface_width=%d, format=%d, pitch=%d, native_pitch=%d",
 						clip_horizontal, (u32)surface_format, pitchs[i], native_pitch);
 
 					//Will not transfer this surface between cell and rsx due to misalignment
@@ -212,7 +214,10 @@ void GLGSRender::init_buffers(bool skip_reading)
 
 	if (std::get<0>(m_rtts.m_bound_depth_stencil))
 	{
-		__glcheck draw_fbo.depth = *std::get<1>(m_rtts.m_bound_depth_stencil);
+		if (depth_format == rsx::surface_depth_format::z24s8)
+			__glcheck draw_fbo.depth_stencil = *std::get<1>(m_rtts.m_bound_depth_stencil);
+		else
+			__glcheck draw_fbo.depth = *std::get<1>(m_rtts.m_bound_depth_stencil);
 
 		const u32 depth_surface_pitch = rsx::method_registers.surface_z_pitch();
 		std::get<1>(m_rtts.m_bound_depth_stencil)->set_rsx_pitch(rsx::method_registers.surface_z_pitch());
@@ -221,12 +226,10 @@ void GLGSRender::init_buffers(bool skip_reading)
 		//Verify pitch given is correct if pitch <= 64 (especially 64)
 		if (depth_surface_pitch <= 64)
 		{
-			verify(HERE), depth_surface_pitch == 64;
-
 			const u16 native_pitch = std::get<1>(m_rtts.m_bound_depth_stencil)->get_native_pitch();
 			if (native_pitch > depth_surface_pitch)
 			{
-				LOG_WARNING(RSX, "Bad depth surface pitch given: surface_width=%d, format=%d, pitch=%d, native_pitch=%d",
+				LOG_TRACE(RSX, "Bad depth surface pitch given: surface_width=%d, format=%d, pitch=%d, native_pitch=%d",
 					clip_horizontal, (u32)depth_format, depth_surface_pitch, native_pitch);
 
 				//Will not transfer this surface between cell and rsx due to misalignment
@@ -238,8 +241,8 @@ void GLGSRender::init_buffers(bool skip_reading)
 	else
 		depth_surface_info = {};
 
-	if (!draw_fbo.check())
-		return;
+	framebuffer_status_valid = draw_fbo.check();
+	if (!framebuffer_status_valid) return;
 
 	draw_fbo.bind();
 	set_viewport();
@@ -275,7 +278,7 @@ void GLGSRender::init_buffers(bool skip_reading)
 	}
 
 	//Mark buffer regions as NO_ACCESS on Cell visible side
-	if (g_cfg_rsx_write_color_buffers)
+	if (g_cfg.video.write_color_buffers)
 	{
 		auto color_format = rsx::internals::surface_color_format_to_gl(surface_format);
 
@@ -289,7 +292,7 @@ void GLGSRender::init_buffers(bool skip_reading)
 		}
 	}
 
-	if (g_cfg_rsx_write_depth_buffer)
+	if (g_cfg.video.write_depth_buffer)
 	{
 		if (depth_surface_info.address && depth_surface_info.pitch)
 		{
@@ -331,7 +334,7 @@ void GLGSRender::read_buffers()
 
 	glDisable(GL_STENCIL_TEST);
 
-	if (g_cfg_rsx_read_color_buffers)
+	if (g_cfg.video.read_color_buffers)
 	{
 		auto color_format = rsx::internals::surface_color_format_to_gl(rsx::method_registers.surface_color());
 
@@ -406,7 +409,7 @@ void GLGSRender::read_buffers()
 		}
 	}
 
-	if (g_cfg_rsx_read_depth_buffer)
+	if (g_cfg.video.read_depth_buffer)
 	{
 		//TODO: use pitch
 		u32 pitch = depth_surface_info.pitch;
@@ -460,7 +463,7 @@ void GLGSRender::write_buffers()
 	if (!draw_fbo)
 		return;
 
-	if (g_cfg_rsx_write_color_buffers)
+	if (g_cfg.video.write_color_buffers)
 	{
 		auto write_color_buffers = [&](int index, int count)
 		{
@@ -482,7 +485,7 @@ void GLGSRender::write_buffers()
 		write_color_buffers(0, 4);
 	}
 
-	if (g_cfg_rsx_write_depth_buffer)
+	if (g_cfg.video.write_depth_buffer)
 	{
 		//TODO: use pitch
 		if (depth_surface_info.pitch == 0) return;

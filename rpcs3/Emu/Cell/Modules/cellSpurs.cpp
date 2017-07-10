@@ -15,9 +15,9 @@
 #include "sysPrxForUser.h"
 #include "cellSpurs.h"
 
-logs::channel cellSpurs("cellSpurs", logs::level::notice);
+logs::channel cellSpurs("cellSpurs");
 
-s32 sys_spu_image_close(vm::ptr<sys_spu_image_t> img);
+s32 sys_spu_image_close(vm::ptr<sys_spu_image> img);
 
 // TODO
 struct cell_error_t
@@ -1051,9 +1051,9 @@ s32 _spurs::initialize(ppu_thread& ppu, vm::ptr<CellSpurs> spurs, u32 revision, 
 
 	// Import SPURS kernel
 	spurs->spuImg.type        = SYS_SPU_IMAGE_TYPE_USER;
-	spurs->spuImg.segs        = vm::cast(vm::alloc(0x40000, vm::main));
+	spurs->spuImg.segs        = vm::null;
 	spurs->spuImg.entry_point = isSecond ? CELL_SPURS_KERNEL2_ENTRY_ADDR : CELL_SPURS_KERNEL1_ENTRY_ADDR;
-	spurs->spuImg.nsegs       = 1;
+	spurs->spuImg.nsegs       = 0;
 
 	// Create a thread group for this SPURS context
 	std::memcpy(spuTgName.get_ptr(), spurs->prefix, spurs->prefixSize);
@@ -2306,6 +2306,12 @@ s32 cellSpursShutdownWorkload()
 
 /// Wait for workload shutdown
 s32 cellSpursWaitForWorkloadShutdown()
+{
+	UNIMPLEMENTED_FUNC(cellSpurs);
+	return CELL_OK;
+}
+
+s32 cellSpursRemoveSystemWorkloadForUtility()
 {
 	UNIMPLEMENTED_FUNC(cellSpurs);
 	return CELL_OK;
@@ -3585,7 +3591,7 @@ s32 _cellSpursSendSignal(ppu_thread& ppu, vm::ptr<CellSpursTaskset> taskset, u32
 		return CELL_SPURS_TASK_ERROR_INVAL;
 	}
 
-    be_t<v128> _0(v128::from32(0));
+	be_t<v128> _0(v128::from32(0));
 	bool disabled = taskset->enabled.value()._bit[taskId];
 	auto invalid  = (taskset->ready & taskset->pending_ready) != _0 || (taskset->running & taskset->waiting) != _0 || disabled ||
 					((taskset->running | taskset->ready | taskset->pending_ready | taskset->waiting | taskset->signalled) & ~taskset->enabled) != _0;
@@ -4258,6 +4264,7 @@ DECLARE(ppu_module_manager::cellSpurs)("cellSpurs", []()
 	REG_FUNC(cellSpurs, cellSpursAddWorkload);
 	REG_FUNC(cellSpurs, cellSpursShutdownWorkload);
 	REG_FUNC(cellSpurs, cellSpursWaitForWorkloadShutdown);
+	REG_FUNC(cellSpurs, cellSpursRemoveSystemWorkloadForUtility);
 	REG_FUNC(cellSpurs, cellSpursRemoveWorkload);
 	REG_FUNC(cellSpurs, cellSpursReadyCountStore);
 	REG_FUNC(cellSpurs, cellSpursGetWorkloadFlag);

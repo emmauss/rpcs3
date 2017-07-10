@@ -756,6 +756,90 @@ uint64_t* darwin_x64reg(x64_context *context, int reg)
 	}
 }
 
+#elif defined(__DragonFly__) || defined(__FreeBSD__)
+
+#define X64REG(context, reg) (freebsd_x64reg(context, reg))
+#ifdef __DragonFly__
+#  define XMMREG(context, reg) (reinterpret_cast<v128*>(((union savefpu*)(context)->uc_mcontext.mc_fpregs)->sv_xmm.sv_xmm[reg]))
+#else
+#  define XMMREG(context, reg) (reinterpret_cast<v128*>(((struct savefpu*)(context)->uc_mcontext.mc_fpstate)->sv_xmm[reg]))
+#endif
+#define EFLAGS(context) ((context)->uc_mcontext.mc_rflags)
+
+register_t* freebsd_x64reg(x64_context *context, int reg)
+{
+	auto *state = &context->uc_mcontext;
+	switch(reg)
+	{
+	case 0: return &state->mc_rax;
+	case 1: return &state->mc_rcx;
+	case 2: return &state->mc_rdx;
+	case 3: return &state->mc_rbx;
+	case 4: return &state->mc_rsp;
+	case 5: return &state->mc_rbp;
+	case 6: return &state->mc_rsi;
+	case 7: return &state->mc_rdi;
+	case 8: return &state->mc_r8;
+	case 9: return &state->mc_r9;
+	case 10: return &state->mc_r10;
+	case 11: return &state->mc_r11;
+	case 12: return &state->mc_r12;
+	case 13: return &state->mc_r13;
+	case 14: return &state->mc_r14;
+	case 15: return &state->mc_r15;
+	case 16: return &state->mc_rip;
+	default:
+		LOG_ERROR(GENERAL, "Invalid register index: %d", reg);
+		return nullptr;
+	}
+}
+
+#elif defined(__OpenBSD__)
+
+#define X64REG(context, reg) (openbsd_x64reg(context, reg))
+#define XMMREG(context, reg) (reinterpret_cast<v128*>((context)->sc_fpstate->fx_xmm[reg]))
+#define EFLAGS(context) ((context)->sc_rflags)
+
+long* openbsd_x64reg(x64_context *context, int reg)
+{
+	auto *state = &context->uc_mcontext;
+	switch(reg)
+	{
+	case 0: return &state->sc_rax;
+	case 1: return &state->sc_rcx;
+	case 2: return &state->sc_rdx;
+	case 3: return &state->sc_rbx;
+	case 4: return &state->sc_rsp;
+	case 5: return &state->sc_rbp;
+	case 6: return &state->sc_rsi;
+	case 7: return &state->sc_rdi;
+	case 8: return &state->sc_r8;
+	case 9: return &state->sc_r9;
+	case 10: return &state->sc_r10;
+	case 11: return &state->sc_r11;
+	case 12: return &state->sc_r12;
+	case 13: return &state->sc_r13;
+	case 14: return &state->sc_r14;
+	case 15: return &state->sc_r15;
+	case 16: return &state->sc_rip;
+	default:
+		LOG_ERROR(GENERAL, "Invalid register index: %d", reg);
+		return nullptr;
+	}
+}
+
+#elif defined(__NetBSD__)
+
+static const decltype(_REG_RAX) reg_table[] =
+{
+	_REG_RAX, _REG_RCX, _REG_RDX, _REG_RBX, _REG_RSP, _REG_RBP, _REG_RSI, _REG_RDI,
+	_REG_R8, _REG_R9, _REG_R10, _REG_R11, _REG_R12, _REG_R13, _REG_R14, _REG_R15, _REG_RIP
+};
+
+#define X64REG(context, reg) (&(context)->uc_mcontext.__gregs[reg_table[reg]])
+#define XMM_sig(context, reg) (reinterpret_cast<v128*>(((struct fxsave64*)(context)->uc_mcontext.__fpregs)->fx_xmm[reg]))
+#define EFLAGS(context) ((context)->uc_mcontext.__gregs[_REG_RFL])
+
 #else
 
 static const decltype(REG_RAX) reg_table[] =
@@ -765,7 +849,11 @@ static const decltype(REG_RAX) reg_table[] =
 };
 
 #define X64REG(context, reg) (&(context)->uc_mcontext.gregs[reg_table[reg]])
+#ifdef __sun
+#define XMMREG(context, reg) (reinterpret_cast<v128*>(&(context)->uc_mcontext.fpregs.fp_reg_set.fpchip_state.xmm[reg_table[reg]]))
+#else
 #define XMMREG(context, reg) (reinterpret_cast<v128*>(&(context)->uc_mcontext.fpregs->_xmm[reg]))
+#endif // __sun
 #define EFLAGS(context) ((context)->uc_mcontext.gregs[REG_EFL])
 
 #endif // __APPLE__
@@ -1003,9 +1091,17 @@ bool handle_access_violation(u32 addr, bool is_writing, x64_context* context)
 {
 	g_tls_fault_all++;
 
+	const auto cpu = get_current_cpu_thread();
+
 	if (rsx::g_access_violation_handler && rsx::g_access_violation_handler(addr, is_writing))
 	{
 		g_tls_fault_rsx++;
+
+		if (cpu)
+		{
+			cpu->test_state();
+		}
+
 		return true;
 	}
 
@@ -1140,13 +1236,18 @@ bool handle_access_violation(u32 addr, bool is_writing, x64_context* context)
 		return true;
 	}
 
-	if (vm::check_addr(addr, d_size))
+	if (vm::check_addr(addr, std::max<std::size_t>(1, d_size)))
 	{
+		if (cpu)
+		{
+			cpu->test_state();
+		}
+
 		return true;
 	}
 
 	// TODO: allow recovering from a page fault as a feature of PS3 virtual memory
-	if (const auto cpu = get_current_cpu_thread())
+	if (cpu)
 	{
 		LOG_FATAL(MEMORY, "Access violation %s location 0x%x", is_writing ? "writing" : "reading", addr);
 		cpu->state += cpu_flag::dbg_pause;
@@ -1216,12 +1317,21 @@ static bool is_leaf_function(u64 rip)
 
 static LONG exception_handler(PEXCEPTION_POINTERS pExp)
 {
-	const u64 addr64 = pExp->ExceptionRecord->ExceptionInformation[1] - (u64)vm::base(0);
+	const u64 addr64 = pExp->ExceptionRecord->ExceptionInformation[1] - (u64)vm::g_base_addr;
+	const u64 exec64 = pExp->ExceptionRecord->ExceptionInformation[1] - (u64)vm::g_exec_addr;
 	const bool is_writing = pExp->ExceptionRecord->ExceptionInformation[0] != 0;
 
 	if (pExp->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && addr64 < 0x100000000ull)
 	{
 		if (thread_ctrl::get_current() && handle_access_violation((u32)addr64, is_writing, pExp->ContextRecord))
+		{
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+	}
+
+	if (pExp->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && exec64 < 0x100000000ull)
+	{
+		if (thread_ctrl::get_current() && handle_access_violation((u32)exec64, is_writing, pExp->ContextRecord))
 		{
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
@@ -1236,7 +1346,6 @@ static LONG exception_filter(PEXCEPTION_POINTERS pExp)
 
 	if (pExp->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION)
 	{
-		const u64 addr64 = pExp->ExceptionRecord->ExceptionInformation[1] - (u64)vm::base(0);
 		const auto cause = pExp->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing" : "reading";
 
 		msg += fmt::format("Segfault %s location %p at %p.\n", cause, pExp->ExceptionRecord->ExceptionInformation[1], pExp->ExceptionRecord->ExceptionAddress);
@@ -1343,17 +1452,32 @@ static void signal_handler(int sig, siginfo_t* info, void* uct)
 
 #ifdef __APPLE__
 	const bool is_writing = context->uc_mcontext->__es.__err & 0x2;
+#elif defined(__DragonFly__) || defined(__FreeBSD__)
+	const bool is_writing = context->uc_mcontext.mc_err & 0x2;
+#elif defined(__OpenBSD__)
+	const bool is_writing = context->sc_err & 0x2;
+#elif defined(__NetBSD__)
+	const bool is_writing = context->uc_mcontext.__gregs[_REG_ERR] & 0x2;
 #else
 	const bool is_writing = context->uc_mcontext.gregs[REG_ERR] & 0x2;
 #endif
 
-	const u64 addr64 = (u64)info->si_addr - (u64)vm::base(0);
+	const u64 addr64 = (u64)info->si_addr - (u64)vm::g_base_addr;
+	const u64 exec64 = (u64)info->si_addr - (u64)vm::g_exec_addr;
 	const auto cause = is_writing ? "writing" : "reading";
 
 	if (addr64 < 0x100000000ull)
 	{
 		// Try to process access violation
 		if (thread_ctrl::get_current() && handle_access_violation((u32)addr64, is_writing, context))
+		{
+			return;
+		}
+	}
+
+	if (exec64 < 0x100000000ull)
+	{
+		if (thread_ctrl::get_current() && handle_access_violation((u32)exec64, is_writing, context))
 		{
 			return;
 		}
@@ -1434,7 +1558,7 @@ void thread_ctrl::start(const std::shared_ptr<thread_ctrl>& ctrl, task_stack tas
 #endif
 
 	// TODO: this is unsafe and must be duplicated in thread_ctrl::initialize
-	ctrl->m_thread = thread;
+	ctrl->m_thread = (uintptr_t)thread;
 }
 
 void thread_ctrl::initialize()
@@ -1490,7 +1614,7 @@ void thread_ctrl::finalize(std::exception_ptr eptr) noexcept
 	FILETIME ctime, etime, ktime, utime;
 	GetThreadTimes(GetCurrentThread(), &ctime, &etime, &ktime, &utime);
 	const u64 time = ((ktime.dwLowDateTime | (u64)ktime.dwHighDateTime << 32) + (utime.dwLowDateTime | (u64)utime.dwHighDateTime << 32)) * 100ull;
-#elif __linux__
+#elif defined(RUSAGE_THREAD)
 	const u64 cycles = 0; // Not supported
 	struct ::rusage stats{};
 	::getrusage(RUSAGE_THREAD, &stats);
@@ -1499,6 +1623,11 @@ void thread_ctrl::finalize(std::exception_ptr eptr) noexcept
 	const u64 cycles = 0;
 	const u64 time = 0;
 #endif
+
+	g_tls_log_prefix = []
+	{
+		return g_tls_this_thread->m_name;
+	};
 
 	LOG_NOTICE(GENERAL, "Thread time: %fs (%fGc); Faults: %u [rsx:%u, spu:%u];",
 		time / 1000000000.,
@@ -1618,7 +1747,7 @@ thread_ctrl::~thread_ctrl()
 #ifdef _WIN32
 		CloseHandle((HANDLE)m_thread.raw());
 #else
-		pthread_detach(m_thread.raw());
+		pthread_detach((pthread_t)m_thread.raw());
 #endif
 	}
 }
@@ -1690,6 +1819,37 @@ void thread_ctrl::test()
 	}
 }
 
+void thread_ctrl::set_native_priority(int priority)
+{
+#ifdef _WIN32
+	HANDLE _this_thread = GetCurrentThread();
+	INT native_priority = THREAD_PRIORITY_NORMAL;
+
+	switch (priority)
+	{
+	default:
+	case 0:
+		break;
+	case 1:
+		native_priority = THREAD_PRIORITY_ABOVE_NORMAL;
+		break;
+	case -1:
+		native_priority = THREAD_PRIORITY_BELOW_NORMAL;
+		break;
+	}
+
+	SetThreadPriority(_this_thread, native_priority);
+#endif
+}
+
+void thread_ctrl::set_ideal_processor_core(int core)
+{
+#ifdef _WIN32
+	HANDLE _this_thread = GetCurrentThread();
+	SetThreadIdealProcessor(_this_thread, core);
+#endif
+}
+
 
 named_thread::named_thread()
 {
@@ -1715,6 +1875,7 @@ void named_thread::start_thread(const std::shared_ptr<void>& _this)
 		try
 		{
 			LOG_TRACE(GENERAL, "Thread started");
+			on_spawn();
 			on_task();
 			LOG_TRACE(GENERAL, "Thread ended");
 		}

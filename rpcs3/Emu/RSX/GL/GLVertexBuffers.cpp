@@ -146,27 +146,22 @@ namespace
 	// return vertex count if primitive type is not native (empty array otherwise)
 	std::tuple<u32, u32> get_index_array_for_emulated_non_indexed_draw(const std::vector<std::pair<u32, u32>> &first_count_commands, rsx::primitive_type primitive_mode, gl::ring_buffer &dst)
 	{
-		u32 vertex_draw_count = 0;
+		//This is an emulated buffer, so our indices only range from 0->original_vertex_array_length
+		u32 vertex_count = 0;
+		u32 element_count = 0;
 		verify(HERE), !gl::is_primitive_native(primitive_mode);
 
 		for (const auto &pair : first_count_commands)
 		{
-			vertex_draw_count += (u32)get_index_count(primitive_mode, pair.second);
+			element_count += (u32)get_index_count(primitive_mode, pair.second);
+			vertex_count += pair.second;
 		}
 
-		u32 first = 0;
-		auto mapping = dst.alloc_from_heap(vertex_draw_count * sizeof(u16), 256);
+		auto mapping = dst.alloc_from_heap(element_count * sizeof(u16), 256);
 		char *mapped_buffer = (char *)mapping.first;
 
-		for (const auto &pair : first_count_commands)
-		{
-			size_t element_count = get_index_count(primitive_mode, pair.second);
-			write_index_array_for_non_indexed_non_native_primitive_to_buffer(mapped_buffer, primitive_mode, first, pair.second);
-			mapped_buffer = (char*)mapped_buffer + element_count * sizeof(u16);
-			first += pair.second;
-		}
-
-		return std::make_tuple(vertex_draw_count, mapping.second);
+		write_index_array_for_non_indexed_non_native_primitive_to_buffer(mapped_buffer, primitive_mode, vertex_count);
+		return std::make_tuple(element_count, mapping.second);
 	}
 
 	std::tuple<u32, u32, u32> upload_index_buffer(gsl::span<const gsl::byte> raw_index_buffer, void *ptr, rsx::index_array_type type, rsx::primitive_type draw_mode, const std::vector<std::pair<u32, u32>> first_count_commands, u32 initial_vertex_count)
@@ -231,9 +226,8 @@ namespace
 			buffer_offset     = mapping.second;
 			gsl::span<gsl::byte> dest_span(dst, data_size);
 
-			prepare_buffer_for_writing(dst, vertex_array.type, vertex_array.attribute_size, vertex_count);
-
 			write_vertex_array_data_to_buffer(dest_span, vertex_array.data, vertex_count, vertex_array.type, vertex_array.attribute_size, vertex_array.stride, rsx::get_vertex_type_size_on_host(vertex_array.type, vertex_array.attribute_size));
+			prepare_buffer_for_writing(dst, vertex_array.type, vertex_array.attribute_size, vertex_count);
 
 			texture.copy_from(m_attrib_ring_info, gl_type, buffer_offset, data_size);
 		}
@@ -243,27 +237,20 @@ namespace
 			int location;
 			if (!m_program->uniforms.has_location(s_reg_table[vertex_register.index], &location))
 				return;
-			switch (vertex_register.type)
-			{
-			case rsx::vertex_base_type::f:
-			{
-				const u32 element_size = rsx::get_vertex_type_size_on_host(vertex_register.type, vertex_register.attribute_size);
-				const u32 gl_type   = to_gl_internal_type(vertex_register.type, vertex_register.attribute_size);
-				const u32 data_size = element_size;
 
-				auto& texture = m_gl_attrib_buffers[vertex_register.index];
+			const u32 element_size = rsx::get_vertex_type_size_on_host(vertex_register.type, vertex_register.attribute_size);
+			const u32 gl_type   = to_gl_internal_type(vertex_register.type, vertex_register.attribute_size);
+			const u32 data_size = element_size;
 
-				auto mapping = m_attrib_ring_info.alloc_from_heap(data_size, m_min_texbuffer_alignment);
-				u8 *dst = static_cast<u8*>(mapping.first);
+			auto& texture = m_gl_attrib_buffers[vertex_register.index];
 
-				memcpy(dst, vertex_register.data.data(), element_size);
-				texture.copy_from(m_attrib_ring_info, gl_type, mapping.second, data_size);
-				break;
-			}
-			default:
-				LOG_ERROR(RSX, "bad non array vertex data format (type=%d, size=%d)", (u32)vertex_register.type, vertex_register.attribute_size);
-				break;
-			}
+			auto mapping = m_attrib_ring_info.alloc_from_heap(data_size, m_min_texbuffer_alignment);
+			u8 *dst = static_cast<u8*>(mapping.first);
+
+			memcpy(dst, vertex_register.data.data(), element_size);
+			prepare_buffer_for_writing(dst, vertex_register.type, vertex_register.attribute_size, vertex_count);
+
+			texture.copy_from(m_attrib_ring_info, gl_type, mapping.second, data_size);
 		}
 
 		void operator()(const rsx::empty_vertex_array& vbo)
@@ -332,7 +319,10 @@ namespace
 		{
 			u32 min_index = 0, max_index = 0;
 
-			rsx::index_array_type type = rsx::method_registers.index_type();
+			rsx::index_array_type type = rsx::method_registers.current_draw_clause.is_immediate_draw?
+				rsx::index_array_type::u32:
+				rsx::method_registers.index_type();
+			
 			u32 type_size              = ::narrow<u32>(get_index_type_size(type));
 
 			u32 vertex_count = rsx::method_registers.current_draw_clause.get_elements_count();

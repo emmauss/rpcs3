@@ -6,8 +6,7 @@
 #include "../rsx_utils.h"
 #include "../Common/BufferUtils.h"
 #include "VKFormats.h"
-
-extern cfg::bool_entry g_cfg_rsx_overlay;
+#include "VKCommonDecompiler.h"
 
 namespace
 {
@@ -34,15 +33,15 @@ namespace
 
 namespace vk
 {
-	VkCompareOp get_compare_func(rsx::comparison_function op)
+	VkCompareOp get_compare_func(rsx::comparison_function op, bool reverse_direction = false)
 	{
 		switch (op)
 		{
 		case rsx::comparison_function::never: return VK_COMPARE_OP_NEVER;
-		case rsx::comparison_function::greater: return VK_COMPARE_OP_GREATER;
-		case rsx::comparison_function::less: return VK_COMPARE_OP_LESS;
-		case rsx::comparison_function::less_or_equal: return VK_COMPARE_OP_LESS_OR_EQUAL;
-		case rsx::comparison_function::greater_or_equal: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+		case rsx::comparison_function::greater: return reverse_direction ? VK_COMPARE_OP_LESS: VK_COMPARE_OP_GREATER;
+		case rsx::comparison_function::less: return reverse_direction ? VK_COMPARE_OP_GREATER: VK_COMPARE_OP_LESS;
+		case rsx::comparison_function::less_or_equal: return reverse_direction ? VK_COMPARE_OP_GREATER_OR_EQUAL: VK_COMPARE_OP_LESS_OR_EQUAL;
+		case rsx::comparison_function::greater_or_equal: return reverse_direction ? VK_COMPARE_OP_LESS_OR_EQUAL: VK_COMPARE_OP_GREATER_OR_EQUAL;
 		case rsx::comparison_function::equal: return VK_COMPARE_OP_EQUAL;
 		case rsx::comparison_function::not_equal: return VK_COMPARE_OP_NOT_EQUAL;
 		case rsx::comparison_function::always: return VK_COMPARE_OP_ALWAYS;
@@ -59,13 +58,13 @@ namespace vk
 			return std::make_pair(VK_FORMAT_R5G6B5_UNORM_PACK16, vk::default_component_map());
 
 		case rsx::surface_color_format::a8r8g8b8:
+		case rsx::surface_color_format::a8b8g8r8:
 			return std::make_pair(VK_FORMAT_B8G8R8A8_UNORM, vk::default_component_map());
 
 		case rsx::surface_color_format::x8b8g8r8_o8b8g8r8:
 		case rsx::surface_color_format::x8b8g8r8_z8b8g8r8:
 		case rsx::surface_color_format::x8r8g8b8_z8r8g8b8:
 		case rsx::surface_color_format::x8r8g8b8_o8r8g8b8:
-		case rsx::surface_color_format::a8b8g8r8:
 		{
 			VkComponentMapping no_alpha = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_ONE };
 			return std::make_pair(VK_FORMAT_B8G8R8A8_UNORM, no_alpha);
@@ -125,10 +124,10 @@ namespace vk
 		case VK_FORMAT_R32G32B32A32_SFLOAT:
 			color_format_idx = 3;
 			break;
-		case VK_FORMAT_R8_UINT:
+		case VK_FORMAT_R8_UNORM:
 			color_format_idx = 4;
 			break;
-		case VK_FORMAT_R8G8_UINT:
+		case VK_FORMAT_R8G8_UNORM:
 			color_format_idx = 5;
 			break;
 		case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
@@ -221,6 +220,7 @@ namespace vk
 		case rsx::blend_factor::one_minus_dst_alpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
 		case rsx::blend_factor::one_minus_constant_alpha: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
 		case rsx::blend_factor::one_minus_constant_color: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+		case rsx::blend_factor::src_alpha_saturate: return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
 		default:
 			fmt::throw_exception("Unknown blend factor 0x%x" HERE, (u32)factor);
 		}
@@ -230,7 +230,8 @@ namespace vk
 	{
 		switch (op)
 		{
-		case rsx::blend_equation::add: return VK_BLEND_OP_ADD;
+		case rsx::blend_equation::add:
+		case rsx::blend_equation::add_signed: return VK_BLEND_OP_ADD;
 		case rsx::blend_equation::substract: return VK_BLEND_OP_SUBTRACT;
 		case rsx::blend_equation::reverse_substract: return VK_BLEND_OP_REVERSE_SUBTRACT;
 		case rsx::blend_equation::min: return VK_BLEND_OP_MIN;
@@ -360,7 +361,7 @@ namespace
 		std::array<VkRenderPass, 120> result = {};
 
 		const std::array<VkFormat, 3> depth_format_list = { VK_FORMAT_UNDEFINED, VK_FORMAT_D16_UNORM, gpu_format_support.d24_unorm_s8 ? VK_FORMAT_D24_UNORM_S8_UINT : VK_FORMAT_D32_SFLOAT_S8_UINT };
-		const std::array<VkFormat, 8> color_format_list = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8_UINT, VK_FORMAT_R8G8_UINT, VK_FORMAT_A1R5G5B5_UNORM_PACK16, VK_FORMAT_R32_SFLOAT };
+		const std::array<VkFormat, 8> color_format_list = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8_UNORM, VK_FORMAT_R8G8_UNORM, VK_FORMAT_A1R5G5B5_UNORM_PACK16, VK_FORMAT_R32_SFLOAT };
 
 
 		for (const VkFormat &color_format : color_format_list)
@@ -448,20 +449,95 @@ namespace
 	}
 }
 
-VKGSRender::VKGSRender() : GSRender(frame_type::Vulkan)
+VKGSRender::VKGSRender() : GSRender()
 {
-	shaders_cache.load(rsx::old_shaders_cache::shader_language::glsl);
+	//shaders_cache.load(rsx::old_shaders_cache::shader_language::glsl);
 
-	m_thread_context.createInstance("RPCS3");
-	m_thread_context.makeCurrentInstance(1);
-	m_thread_context.enable_debugging();
+	u32 instance_handle = m_thread_context.createInstance("RPCS3");
+	
+	if (instance_handle > 0)
+	{
+		m_thread_context.makeCurrentInstance(instance_handle);
+		m_thread_context.enable_debugging();
+	}
+	else
+	{
+		LOG_FATAL(RSX, "Could not find a vulkan compatible GPU driver. Your GPU(s) may not support Vulkan, or you need to install the vulkan runtime and drivers");
+		m_device = VK_NULL_HANDLE;
+		return;
+	}
 
 #ifdef _WIN32
 	HINSTANCE hInstance = NULL;
 	HWND hWnd = (HWND)m_frame->handle();
 
-	std::vector<vk::physical_device>& gpus = m_thread_context.enumerateDevices();
-	m_swap_chain = m_thread_context.createSwapChain(hInstance, hWnd, gpus[0]);
+	std::vector<vk::physical_device>& gpus = m_thread_context.enumerateDevices();	
+	
+	//Actually confirm  that the loader found at least one compatible device
+	//This should not happen unless something is wrong with the driver setup on the target system
+	if (gpus.size() == 0)
+	{
+		//We can't throw in Emulator::Load, so we show error and return
+		LOG_FATAL(RSX, "No compatible GPU devices found");
+		m_device = VK_NULL_HANDLE;
+		return;
+	}
+
+	bool gpu_found = false;
+	std::string adapter_name = g_cfg.video.vk.adapter;
+	for (auto &gpu : gpus)
+	{
+		if (gpu.name() == adapter_name)
+		{
+			m_swap_chain = m_thread_context.createSwapChain(hInstance, hWnd, gpu);
+			gpu_found = true;
+			break;
+		}
+	}
+
+	if (!gpu_found || adapter_name.empty())
+	{
+		m_swap_chain = m_thread_context.createSwapChain(hInstance, hWnd, gpus[0]);
+	}
+	
+#elif __linux__
+
+	Window window = (Window)m_frame->handle();
+	Display *display = XOpenDisplay(0);
+
+	std::vector<vk::physical_device>& gpus = m_thread_context.enumerateDevices();	
+	
+	//Actually confirm  that the loader found at least one compatible device
+	//This should not happen unless something is wrong with the driver setup on the target system
+	if (gpus.size() == 0)
+	{
+		//We can't throw in Emulator::Load, so we show error and return
+		LOG_FATAL(RSX, "No compatible GPU devices found");
+		m_device = VK_NULL_HANDLE;
+		return;
+	}
+
+	XFlush(display);
+
+	bool gpu_found = false;
+	std::string adapter_name = g_cfg.video.vk.adapter;
+	for (auto &gpu : gpus)
+	{
+		if (gpu.name() == adapter_name)
+		{
+			m_swap_chain = m_thread_context.createSwapChain(display, window, gpu);
+			gpu_found = true;
+			break;
+		}
+	}
+
+	if (!gpu_found || adapter_name.empty())
+	{
+		m_swap_chain = m_thread_context.createSwapChain(display, window, gpus[0]);
+	}
+	
+	m_display_handle = display;
+
 #endif
 
 	m_device = (vk::render_device *)(&m_swap_chain->get_device());
@@ -479,33 +555,44 @@ VKGSRender::VKGSRender() : GSRender(frame_type::Vulkan)
 
 	//create command buffer...
 	m_command_buffer_pool.create((*m_device));
-	m_command_buffer.create(m_command_buffer_pool);
+
+	for (auto &cb : m_primary_cb_list)
+	{
+		cb.create(m_command_buffer_pool);
+		cb.init_fence(*m_device);
+	}
+
+	m_current_command_buffer = &m_primary_cb_list[0];
+	
+	//Create secondar command_buffer for parallel operations
+	m_secondary_command_buffer_pool.create((*m_device));
+	m_secondary_command_buffer.create(m_secondary_command_buffer_pool);
+	
 	open_command_buffer();
 
 	for (u32 i = 0; i < m_swap_chain->get_swap_image_count(); ++i)
 	{
-		vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(i),
+		vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i),
 								VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
 								vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT));
 
 		VkClearColorValue clear_color{};
 		auto range = vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT);
-		vkCmdClearColorImage(m_command_buffer, m_swap_chain->get_swap_chain_image(i), VK_IMAGE_LAYOUT_GENERAL, &clear_color, 1, &range);
-		vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(i),
+		vkCmdClearColorImage(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i), VK_IMAGE_LAYOUT_GENERAL, &clear_color, 1, &range);
+		vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i),
 			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT));
 
 	}
 
-
-#define RING_BUFFER_SIZE 16 * 1024 * DESCRIPTOR_MAX_DRAW_CALLS
-
-	m_uniform_buffer_ring_info.init(RING_BUFFER_SIZE);
-	m_uniform_buffer_ring_info.heap.reset(new vk::buffer(*m_device, RING_BUFFER_SIZE, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 0));
-	m_index_buffer_ring_info.init(RING_BUFFER_SIZE);
-	m_index_buffer_ring_info.heap.reset(new vk::buffer(*m_device, RING_BUFFER_SIZE, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 0));
-	m_texture_upload_buffer_ring_info.init(8 * RING_BUFFER_SIZE);
-	m_texture_upload_buffer_ring_info.heap.reset(new vk::buffer(*m_device, 8 * RING_BUFFER_SIZE, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0));
+	m_attrib_ring_info.init(VK_ATTRIB_RING_BUFFER_SIZE_M * 0x100000);
+	m_attrib_ring_info.heap.reset(new vk::buffer(*m_device, VK_ATTRIB_RING_BUFFER_SIZE_M * 0x100000, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, 0));
+	m_uniform_buffer_ring_info.init(VK_UBO_RING_BUFFER_SIZE_M * 0x100000);
+	m_uniform_buffer_ring_info.heap.reset(new vk::buffer(*m_device, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 0));
+	m_index_buffer_ring_info.init(VK_INDEX_RING_BUFFER_SIZE_M * 0x100000);
+	m_index_buffer_ring_info.heap.reset(new vk::buffer(*m_device, VK_INDEX_RING_BUFFER_SIZE_M * 0x100000, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 0));
+	m_texture_upload_buffer_ring_info.init(VK_TEXTURE_UPLOAD_RING_BUFFER_SIZE_M * 0x100000);
+	m_texture_upload_buffer_ring_info.heap.reset(new vk::buffer(*m_device, VK_TEXTURE_UPLOAD_RING_BUFFER_SIZE_M * 0x100000, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0));
 
 	m_render_passes = get_precomputed_render_passes(*m_device, m_optimal_tiling_supported_formats);
 
@@ -526,14 +613,14 @@ VKGSRender::VKGSRender() : GSRender(frame_type::Vulkan)
 	VkFenceCreateInfo fence_info = {};
 	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
-	CHECK_RESULT(vkCreateFence(*m_device, &fence_info, nullptr, &m_submit_fence));
-
 	VkSemaphoreCreateInfo semaphore_info = {};
 	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	vkCreateSemaphore((*m_device), &semaphore_info, nullptr, &m_present_semaphore);
 
-	if (g_cfg_rsx_overlay)
+	vk::initialize_compiler_context();
+
+	if (g_cfg.video.overlay)
 	{
 		size_t idx = vk::get_render_pass_location( m_swap_chain->get_surface_format(), VK_FORMAT_UNDEFINED, 1);
 		m_text_writer.reset(new vk::text_writer());
@@ -543,8 +630,21 @@ VKGSRender::VKGSRender() : GSRender(frame_type::Vulkan)
 
 VKGSRender::~VKGSRender()
 {
-	//Wait for queue
-	vkQueueWaitIdle(m_swap_chain->get_present_queue());
+	if (m_device == VK_NULL_HANDLE)
+	{
+		//Initialization failed
+		return;
+	}
+
+	//Close recording and wait for all to finish
+	close_render_pass();
+	CHECK_RESULT(vkEndCommandBuffer(*m_current_command_buffer));
+
+	for (auto &cb : m_primary_cb_list)
+		if (cb.pending) cb.wait();
+
+	//Wait for device to finish up with resources
+	vkDeviceWaitIdle(*m_device);
 
 	//Sync objects
 	if (m_present_semaphore)
@@ -553,13 +653,11 @@ VKGSRender::~VKGSRender()
 		m_present_semaphore = nullptr;
 	}
 
-	if (m_submit_fence)
-	{
-		vkDestroyFence(*m_device, m_submit_fence, nullptr);
-		m_submit_fence = nullptr;
-	}
+	//Texture cache
+	m_texture_cache.destroy();
 
 	//Shaders
+	vk::finalize_compiler_context();
 	m_prog_buffer.clear();
 
 	//Global resources
@@ -598,20 +696,97 @@ VKGSRender::~VKGSRender()
 	descriptor_pool.destroy();
 
 	//Command buffer
-	m_command_buffer.destroy();
+	for (auto &cb : m_primary_cb_list)
+		cb.destroy();
+
 	m_command_buffer_pool.destroy();
+
+	m_secondary_command_buffer.destroy();
+	m_secondary_command_buffer_pool.destroy();
 
 	//Device handles/contexts
 	m_swap_chain->destroy();
 	m_thread_context.close();
 
 	delete m_swap_chain;
+	
+#ifdef __linux__
+	if (m_display_handle)
+		XCloseDisplay(m_display_handle);
+#endif
 }
 
 bool VKGSRender::on_access_violation(u32 address, bool is_writing)
 {
 	if (is_writing)
 		return m_texture_cache.invalidate_address(address);
+	else
+	{
+		if (g_cfg.video.write_color_buffers || g_cfg.video.write_depth_buffer)
+		{
+			bool flushable, synchronized;
+			std::tie(flushable, synchronized) = m_texture_cache.address_is_flushable(address);
+			
+			if (!flushable)
+				return false;
+
+			if (synchronized)
+			{
+				if (m_last_flushable_cb >= 0)
+				{
+					if (m_primary_cb_list[m_last_flushable_cb].pending)
+						m_primary_cb_list[m_last_flushable_cb].wait();
+				}
+
+				m_last_flushable_cb = -1;
+			}
+			else
+			{
+				//This region is buffered, but no previous sync point has been put in place to start sync efforts
+				//Just stall and get what we have at this point
+				if (std::this_thread::get_id() != rsx_thread)
+				{
+					{
+						std::lock_guard<std::mutex> lock(m_flush_queue_mutex);
+
+						m_flush_commands = true;
+						m_queued_threads++;
+					}
+
+					//This is awful!
+					while (m_flush_commands)
+					{
+						_mm_lfence();
+						_mm_pause();
+					}
+
+					std::lock_guard<std::mutex> lock(m_secondary_cb_guard);
+					bool status = m_texture_cache.flush_address(address, *m_device, m_secondary_command_buffer, m_memory_type_mapping, m_swap_chain->get_present_queue());
+
+					m_queued_threads--;
+					_mm_sfence();
+
+					return status;
+				}
+				else
+				{
+					//NOTE: If the rsx::thread is trampling its own data, we have an operation that should be moved to the GPU
+					//We should never interrupt our own cb recording since some operations are not interruptible
+					if (!vk::is_uninterruptible())
+						//TODO: Investigate driver behaviour to determine if we need a hard sync or a soft flush
+						flush_command_queue();
+				}
+			}
+		}
+		else
+		{
+			//If we aren't managing buffer sync, dont bother checking the cache
+			return false;
+		}
+
+		std::lock_guard<std::mutex> lock(m_secondary_cb_guard);
+		return m_texture_cache.flush_address(address, *m_device, m_secondary_command_buffer, m_memory_type_mapping, m_swap_chain->get_present_queue());
+	}
 
 	return false;
 }
@@ -620,30 +795,32 @@ void VKGSRender::begin()
 {
 	rsx::thread::begin();
 
-	//Ease resource pressure if the number of draw calls becomes too high
-	if (m_used_descriptors >= DESCRIPTOR_MAX_DRAW_CALLS)
+	if (skip_frame)
+		return;
+
+	//Ease resource pressure if the number of draw calls becomes too high or we are running low on memory resources
+	if (m_used_descriptors >= DESCRIPTOR_MAX_DRAW_CALLS ||
+		m_attrib_ring_info.is_critical() ||
+		m_texture_upload_buffer_ring_info.is_critical() ||
+		m_uniform_buffer_ring_info.is_critical() ||
+		m_index_buffer_ring_info.is_critical())
 	{
 		std::chrono::time_point<steady_clock> submit_start = steady_clock::now();
 
-		close_and_submit_command_buffer({}, m_submit_fence);
-		CHECK_RESULT(vkWaitForFences((*m_device), 1, &m_submit_fence, VK_TRUE, ~0ULL));
+		flush_command_queue(true);
 
-		vkResetDescriptorPool(*m_device, descriptor_pool, 0);
-		CHECK_RESULT(vkResetFences(*m_device, 1, &m_submit_fence));
-		CHECK_RESULT(vkResetCommandPool(*m_device, m_command_buffer_pool, 0));
-		open_command_buffer();
-
+		CHECK_RESULT(vkResetDescriptorPool(*m_device, descriptor_pool, 0));
+		m_last_descriptor_set = VK_NULL_HANDLE;
 		m_used_descriptors = 0;
-		m_uniform_buffer_ring_info.m_get_pos = m_uniform_buffer_ring_info.get_current_put_pos_minus_one();
-		m_index_buffer_ring_info.m_get_pos = m_index_buffer_ring_info.get_current_put_pos_minus_one();
-		m_attrib_ring_info.m_get_pos = m_attrib_ring_info.get_current_put_pos_minus_one();
-		m_texture_upload_buffer_ring_info.m_get_pos = m_texture_upload_buffer_ring_info.get_current_put_pos_minus_one();
+
+		m_uniform_buffer_ring_info.reset_allocation_stats();
+		m_index_buffer_ring_info.reset_allocation_stats();
+		m_attrib_ring_info.reset_allocation_stats();
+		m_texture_upload_buffer_ring_info.reset_allocation_stats();
 
 		std::chrono::time_point<steady_clock> submit_end = steady_clock::now();
 		m_flip_time += std::chrono::duration_cast<std::chrono::microseconds>(submit_end - submit_start).count();
 	}
-
-	std::chrono::time_point<steady_clock> start = steady_clock::now();
 
 	VkDescriptorSetAllocateInfo alloc_info = {};
 	alloc_info.descriptorPool = descriptor_pool;
@@ -655,32 +832,189 @@ void VKGSRender::begin()
 	CHECK_RESULT(vkAllocateDescriptorSets(*m_device, &alloc_info, &new_descriptor_set));
 
 	descriptor_sets = new_descriptor_set;
+	m_used_descriptors++;
+
+	std::chrono::time_point<steady_clock> start = steady_clock::now();
 
 	init_buffers();
 
-	if (!load_program())
+	if (!framebuffer_status_valid)
 		return;
 
 	float actual_line_width = rsx::method_registers.line_width();
 
-	vkCmdSetLineWidth(m_command_buffer, actual_line_width);
+	vkCmdSetLineWidth(*m_current_command_buffer, actual_line_width);
 
 	//TODO: Set up other render-state parameters into the program pipeline
 
 	std::chrono::time_point<steady_clock> stop = steady_clock::now();
 	m_setup_time += std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-
-	m_draw_calls++;
-	m_used_descriptors++;
 }
 
-void VKGSRender::end()
+void VKGSRender::emit_geometry_instance(u32/* instance_count*/)
 {
+	begin_render_pass();
+
+	m_instanced_draws++;
+	//Repeat last command
+	if (!m_last_draw_indexed)
+		vkCmdDraw(*m_current_command_buffer, m_last_vertex_count, 1, 0, 0);
+	else
+	{
+		vkCmdBindIndexBuffer(*m_current_command_buffer, m_index_buffer_ring_info.heap->value, m_last_ib_offset, m_last_ib_type);
+		vkCmdDrawIndexed(*m_current_command_buffer, m_last_vertex_count, 1, 0, 0, 0);
+	}
+}
+
+void VKGSRender::begin_render_pass()
+{
+	if (render_pass_open)
+		return;
+
 	size_t idx = vk::get_render_pass_location(
 		vk::get_compatible_surface_format(rsx::method_registers.surface_color()).first,
 		vk::get_compatible_depth_surface_format(m_optimal_tiling_supported_formats, rsx::method_registers.surface_depth_fmt()),
 		(u8)vk::get_draw_buffers(rsx::method_registers.surface_color_target()).size());
 	VkRenderPass current_render_pass = m_render_passes[idx];
+
+	VkRenderPassBeginInfo rp_begin = {};
+	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rp_begin.renderPass = current_render_pass;
+	rp_begin.framebuffer = m_framebuffer_to_clean.back()->value;
+	rp_begin.renderArea.offset.x = 0;
+	rp_begin.renderArea.offset.y = 0;
+	rp_begin.renderArea.extent.width = m_framebuffer_to_clean.back()->width();
+	rp_begin.renderArea.extent.height = m_framebuffer_to_clean.back()->height();
+
+	vkCmdBeginRenderPass(*m_current_command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+	render_pass_open = true;
+}
+
+void VKGSRender::close_render_pass()
+{
+	if (!render_pass_open)
+		return;
+
+	vkCmdEndRenderPass(*m_current_command_buffer);
+	render_pass_open = false;
+}
+
+void VKGSRender::end()
+{
+	if (skip_frame || !framebuffer_status_valid)
+	{
+		rsx::thread::end();
+		return;
+	}
+
+	std::chrono::time_point<steady_clock> program_start = steady_clock::now();
+
+	const bool is_instanced = is_probable_instanced_draw() && m_last_descriptor_set != VK_NULL_HANDLE && m_program != nullptr;
+
+	if (is_instanced)
+	{
+		//Copy descriptor set
+		VkCopyDescriptorSet copy_info[39];
+		u8 descriptors_count = 0;
+		
+		for (u8 i = 0; i < 39; ++i)
+		{
+			if ((m_program->attribute_location_mask & (1ull << i)) == 0)
+				continue;
+
+			const u8 n = descriptors_count;
+
+			copy_info[n] = {};
+			copy_info[n].sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+			copy_info[n].srcSet = m_last_descriptor_set;
+			copy_info[n].dstSet = descriptor_sets;
+			copy_info[n].srcBinding = i;
+			copy_info[n].dstBinding = i;
+			copy_info[n].srcArrayElement = 0;
+			copy_info[n].dstArrayElement = 0;
+			copy_info[n].descriptorCount = 1;
+
+			descriptors_count++;
+		}
+
+		vkUpdateDescriptorSets(*m_device, 0, nullptr, descriptors_count, (const VkCopyDescriptorSet*)&copy_info);
+	}
+
+	//Load program here since it is dependent on vertex state
+	load_program(is_instanced);
+
+	std::chrono::time_point<steady_clock> program_stop = steady_clock::now();
+	m_setup_time += (u32)std::chrono::duration_cast<std::chrono::microseconds>(program_stop - program_start).count();
+
+	if (is_instanced)
+	{
+		//Only the program constants descriptors should have changed
+		vkCmdBindPipeline(*m_current_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_program->pipeline);
+		vkCmdBindDescriptorSets(*m_current_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets, 0, nullptr);
+
+		emit_geometry_instance(1);
+		m_last_instanced_cb_index = m_current_cb_index;
+		rsx::thread::end();
+		return;
+	}
+
+	close_render_pass();	//Texture upload stuff conflicts active RPs
+
+	if (g_cfg.video.strict_rendering_mode)
+	{
+		auto copy_rtt_contents = [&](vk::render_target* surface)
+		{
+			const VkImageAspectFlags aspect = surface->attachment_aspect_flag;
+
+			const u16 parent_w = surface->old_contents->width();
+			const u16 parent_h = surface->old_contents->height();
+			u16 copy_w, copy_h;
+
+			std::tie(std::ignore, std::ignore, copy_w, copy_h) = rsx::clip_region<u16>(parent_w, parent_h, 0, 0, surface->width(), surface->height(), true);
+
+			VkImageSubresourceRange subresource_range = { aspect, 0, 1, 0, 1 };
+			VkImageLayout old_layout = surface->current_layout;
+
+			vk::change_image_layout(*m_current_command_buffer, surface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
+			vk::change_image_layout(*m_current_command_buffer, surface->old_contents, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
+
+			VkImageCopy copy_rgn;
+			copy_rgn.srcOffset = { 0, 0, 0 };
+			copy_rgn.dstOffset = { 0, 0, 0 };
+			copy_rgn.dstSubresource = { aspect, 0, 0, 1 };
+			copy_rgn.srcSubresource = { aspect, 0, 0, 1 };
+			copy_rgn.extent = { copy_w, copy_h, 1 };
+
+			vkCmdCopyImage(*m_current_command_buffer, surface->old_contents->value, surface->old_contents->current_layout, surface->value, surface->current_layout, 1, &copy_rgn);
+			vk::change_image_layout(*m_current_command_buffer, surface, old_layout, subresource_range);
+
+			surface->dirty = false;
+			surface->old_contents = nullptr;
+		};
+
+		//Prepare surfaces if needed
+		for (auto &rtt : m_rtts.m_bound_render_targets)
+		{
+			if (std::get<0>(rtt) != 0)
+			{
+				auto surface = std::get<1>(rtt);
+
+				if (surface->dirty && surface->old_contents != nullptr)
+					copy_rtt_contents(surface);
+			}
+		}
+
+		if (auto ds = std::get<1>(m_rtts.m_bound_depth_stencil))
+		{
+			if (ds->dirty && ds->old_contents != nullptr)
+				copy_rtt_contents(ds);
+		}
+	}
+
+	std::chrono::time_point<steady_clock> vertex_start0 = steady_clock::now();
+	auto upload_info = upload_vertex_data();
+	std::chrono::time_point<steady_clock> vertex_end0 = steady_clock::now();
+	m_vertex_upload_time += std::chrono::duration_cast<std::chrono::microseconds>(vertex_end0 - vertex_start0).count();
 
 	std::chrono::time_point<steady_clock> textures_start = steady_clock::now();
 
@@ -694,7 +1028,7 @@ void VKGSRender::end()
 				continue;
 			}
 
-			vk::image_view *texture0 = m_texture_cache.upload_texture(m_command_buffer, rsx::method_registers.fragment_textures[i], m_rtts, m_memory_type_mapping, m_texture_upload_buffer_ring_info, m_texture_upload_buffer_ring_info.heap.get());
+			vk::image_view *texture0 = m_texture_cache.upload_texture(*m_current_command_buffer, rsx::method_registers.fragment_textures[i], m_rtts, m_memory_type_mapping, m_texture_upload_buffer_ring_info, m_texture_upload_buffer_ring_info.heap.get());
 
 			if (!texture0)
 			{
@@ -702,6 +1036,11 @@ void VKGSRender::end()
 				m_program->bind_uniform({ vk::null_sampler(), vk::null_image_view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, "tex" + std::to_string(i), descriptor_sets);
 				continue;
 			}
+
+			const u32 texture_format = rsx::method_registers.fragment_textures[i].format() & ~(CELL_GCM_TEXTURE_UN | CELL_GCM_TEXTURE_LN);
+
+			VkBool32 is_depth_texture = (texture_format == CELL_GCM_TEXTURE_DEPTH16 || texture_format == CELL_GCM_TEXTURE_DEPTH24_D8);
+			VkCompareOp depth_compare = is_depth_texture? vk::get_compare_func((rsx::comparison_function)rsx::method_registers.fragment_textures[i].zfunc(), true): VK_COMPARE_OP_NEVER;
 
 			VkFilter min_filter;
 			VkSamplerMipmapMode mip_mode;
@@ -726,8 +1065,8 @@ void VKGSRender::end()
 				vk::vk_wrap_mode(rsx::method_registers.fragment_textures[i].wrap_s()), vk::vk_wrap_mode(rsx::method_registers.fragment_textures[i].wrap_t()), vk::vk_wrap_mode(rsx::method_registers.fragment_textures[i].wrap_r()),
 				!!(rsx::method_registers.fragment_textures[i].format() & CELL_GCM_TEXTURE_UN),
 				lod_bias, vk::max_aniso(rsx::method_registers.fragment_textures[i].max_aniso()), min_lod, max_lod,
-				min_filter, vk::get_mag_filter(rsx::method_registers.fragment_textures[i].mag_filter()), mip_mode, vk::get_border_color(rsx::method_registers.fragment_textures[i].border_color())
-				));
+				min_filter, vk::get_mag_filter(rsx::method_registers.fragment_textures[i].mag_filter()), mip_mode, vk::get_border_color(rsx::method_registers.fragment_textures[i].border_color()),
+				is_depth_texture, depth_compare));
 
 			m_program->bind_uniform({ m_sampler_to_clean.back()->value, texture0->value, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, "tex" + std::to_string(i), descriptor_sets);
 		}
@@ -743,7 +1082,7 @@ void VKGSRender::end()
 				continue;
 			}
 
-			vk::image_view *texture0 = m_texture_cache.upload_texture(m_command_buffer, rsx::method_registers.vertex_textures[i], m_rtts, m_memory_type_mapping, m_texture_upload_buffer_ring_info, m_texture_upload_buffer_ring_info.heap.get());
+			vk::image_view *texture0 = m_texture_cache.upload_texture(*m_current_command_buffer, rsx::method_registers.vertex_textures[i], m_rtts, m_memory_type_mapping, m_texture_upload_buffer_ring_info, m_texture_upload_buffer_ring_info.heap.get());
 
 			if (!texture0)
 			{
@@ -756,7 +1095,7 @@ void VKGSRender::end()
 				*m_device,
 				VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 				!!(rsx::method_registers.vertex_textures[i].format() & CELL_GCM_TEXTURE_UN),
-				0, 1.f, rsx::method_registers.vertex_textures[i].min_lod(), rsx::method_registers.vertex_textures[i].max_lod(),
+				0.f, 1.f, (f32)rsx::method_registers.vertex_textures[i].min_lod(), (f32)rsx::method_registers.vertex_textures[i].max_lod(),
 				VK_FILTER_NEAREST, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST, vk::get_border_color(rsx::method_registers.vertex_textures[i].border_color())
 				));
 
@@ -767,29 +1106,47 @@ void VKGSRender::end()
 	std::chrono::time_point<steady_clock> textures_end = steady_clock::now();
 	m_textures_upload_time += std::chrono::duration_cast<std::chrono::microseconds>(textures_end - textures_start).count();
 
-	VkRenderPassBeginInfo rp_begin = {};
-	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	rp_begin.renderPass = current_render_pass;
-	rp_begin.framebuffer = m_framebuffer_to_clean.back()->value;
-	rp_begin.renderArea.offset.x = 0;
-	rp_begin.renderArea.offset.y = 0;
-	rp_begin.renderArea.extent.width = m_framebuffer_to_clean.back()->width();
-	rp_begin.renderArea.extent.height = m_framebuffer_to_clean.back()->height();
+	//While vertex upload is an interruptible process, if we made it this far, there's no need to sync anything that occurs past this point
+	//Only textures are synchronized tightly with the GPU and they have been read back above
+	vk::enter_uninterruptible();
 
-	vkCmdBeginRenderPass(m_command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+	begin_render_pass();
+	vkCmdBindPipeline(*m_current_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_program->pipeline);
+	vkCmdBindDescriptorSets(*m_current_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets, 0, nullptr);
 
-	auto upload_info = upload_vertex_data();
+	if (auto ds = std::get<1>(m_rtts.m_bound_depth_stencil))
+	{
+		if (ds->dirty)
+		{
+			//Clear this surface before drawing on it
+			VkClearValue depth_clear_value;
+			depth_clear_value.depthStencil.depth = 1.f;
+			depth_clear_value.depthStencil.stencil = 255;
+
+			VkClearRect clear_rect = { 0, 0, m_framebuffer_to_clean.back()->width(), m_framebuffer_to_clean.back()->height(), 0, 1 };
+			VkClearAttachment clear_desc = { ds->attachment_aspect_flag, 0, depth_clear_value };
+			vkCmdClearAttachments(*m_current_command_buffer, 1, &clear_desc, 1, &clear_rect);
+
+			ds->dirty = false;
+		}
+	}
+
+	std::optional<std::tuple<VkDeviceSize, VkIndexType> > index_info = std::get<2>(upload_info);
+
+	if (m_attrib_ring_info.mapped)
+	{
+		wait_for_vertex_upload_task();
+		m_attrib_ring_info.unmap();
+	}
 
 	std::chrono::time_point<steady_clock> vertex_end = steady_clock::now();
 	m_vertex_upload_time += std::chrono::duration_cast<std::chrono::microseconds>(vertex_end - textures_end).count();
 
-	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_program->pipeline);
-	vkCmdBindDescriptorSets(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets, 0, nullptr);
-
-	std::optional<std::tuple<VkDeviceSize, VkIndexType> > index_info = std::get<2>(upload_info);
-
 	if (!index_info)
-		vkCmdDraw(m_command_buffer, std::get<1>(upload_info), 1, 0, 0);
+	{
+		vkCmdDraw(*m_current_command_buffer, std::get<1>(upload_info), 1, 0, 0);
+		m_last_draw_indexed = false;
+	}
 	else
 	{
 		VkIndexType index_type;
@@ -798,14 +1155,25 @@ void VKGSRender::end()
 
 		std::tie(offset, index_type) = index_info.value();
 
-		vkCmdBindIndexBuffer(m_command_buffer, m_index_buffer_ring_info.heap->value, offset, index_type);
-		vkCmdDrawIndexed(m_command_buffer, index_count, 1, 0, 0, 0);
+		vkCmdBindIndexBuffer(*m_current_command_buffer, m_index_buffer_ring_info.heap->value, offset, index_type);
+		vkCmdDrawIndexed(*m_current_command_buffer, index_count, 1, 0, 0, 0);
+
+		m_last_draw_indexed = false;
+		m_last_ib_type = index_type;
+		m_last_ib_offset = offset;
+		m_last_vertex_count = index_count;
 	}
 
-	vkCmdEndRenderPass(m_command_buffer);
+	m_last_instanced_cb_index = ~0;
+	m_last_descriptor_set = descriptor_sets;
+
+	vk::leave_uninterruptible();
 
 	std::chrono::time_point<steady_clock> draw_end = steady_clock::now();
 	m_draw_time += std::chrono::duration_cast<std::chrono::microseconds>(draw_end - vertex_end).count();
+
+	copy_render_targets_to_dma_location();
+	m_draw_calls++;
 
 	rsx::thread::end();
 }
@@ -826,7 +1194,7 @@ void VKGSRender::set_viewport()
 	viewport.minDepth = 0.f;
 	viewport.maxDepth = 1.f;
 
-	vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+	vkCmdSetViewport(*m_current_command_buffer, 0, 1, &viewport);
 
 	VkRect2D scissor = {};
 	scissor.extent.height = scissor_h;
@@ -834,25 +1202,38 @@ void VKGSRender::set_viewport()
 	scissor.offset.x = scissor_x;
 	scissor.offset.y = scissor_y;
 
-	vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
+	vkCmdSetScissor(*m_current_command_buffer, 0, 1, &scissor);
+
+	if (scissor_x >= viewport.width || scissor_y >= viewport.height || scissor_w == 0 || scissor_h == 0)
+	{
+		if (!g_cfg.video.strict_rendering_mode)
+		{
+			framebuffer_status_valid = false;
+			return;
+		}
+	}
 }
 
 void VKGSRender::on_init_thread()
 {
+	if (m_device == VK_NULL_HANDLE)
+	{
+		fmt::throw_exception("No vulkan device was created");
+	}
+
 	GSRender::on_init_thread();
-	m_attrib_ring_info.init(8 * RING_BUFFER_SIZE);
-	m_attrib_ring_info.heap.reset(new vk::buffer(*m_device, 8 * RING_BUFFER_SIZE, m_memory_type_mapping.host_visible_coherent, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, 0));
+	rsx_thread = std::this_thread::get_id();
 }
 
 void VKGSRender::on_exit()
 {
-	m_texture_cache.destroy();
-
 	return GSRender::on_exit();
 }
 
 void VKGSRender::clear_surface(u32 mask)
 {
+	if (skip_frame) return;
+
 	// Ignore clear if surface target is set to CELL_GCM_SURFACE_TARGET_NONE
 	if (rsx::method_registers.surface_color_target() == rsx::surface_target::none) return;
 
@@ -860,6 +1241,10 @@ void VKGSRender::clear_surface(u32 mask)
 	if (m_current_present_image == 0xFFFF) return;
 
 	init_buffers();
+
+	if (!framebuffer_status_valid) return;
+
+	copy_render_targets_to_dma_location();
 
 	float depth_clear = 1.f;
 	u32   stencil_clear = 0;
@@ -875,6 +1260,11 @@ void VKGSRender::clear_surface(u32 mask)
 	u16 scissor_y = rsx::method_registers.scissor_origin_y();
 	u16 scissor_h = rsx::method_registers.scissor_height();
 
+	const u32 fb_width = m_framebuffer_to_clean.back()->width();
+	const u32 fb_height = m_framebuffer_to_clean.back()->height();
+
+	//clip region
+	std::tie(scissor_x, scissor_y, scissor_w, scissor_h) = rsx::clip_region<u16>(fb_width, fb_height, scissor_x, scissor_y, scissor_w, scissor_h, true);
 	VkClearRect region = { { { scissor_x, scissor_y },{ scissor_w, scissor_h } }, 0, 1 };
 
 	auto targets = vk::get_draw_buffers(rsx::method_registers.surface_color_target());
@@ -884,7 +1274,7 @@ void VKGSRender::clear_surface(u32 mask)
 	{
 		u32 max_depth_value = get_max_depth_value(surface_depth_format);
 
-		u32 clear_depth = rsx::method_registers.z_clear_value();
+		u32 clear_depth = rsx::method_registers.z_clear_value(surface_depth_format == rsx::surface_depth_format::z24s8);
 		float depth_clear = (float)clear_depth / max_depth_value;
 
 		depth_stencil_clear_values.depthStencil.depth = depth_clear;
@@ -898,9 +1288,8 @@ void VKGSRender::clear_surface(u32 mask)
 		if (surface_depth_format == rsx::surface_depth_format::z24s8)
 		{
 			u8 clear_stencil = rsx::method_registers.stencil_clear_value();
-			u32 stencil_mask = rsx::method_registers.stencil_mask();
 
-			depth_stencil_clear_values.depthStencil.stencil = stencil_mask;
+			depth_stencil_clear_values.depthStencil.stencil = clear_stencil;
 
 			depth_stencil_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 		}
@@ -923,6 +1312,15 @@ void VKGSRender::clear_surface(u32 mask)
 			clear_descriptors.push_back({ VK_IMAGE_ASPECT_COLOR_BIT, (uint32_t)index, color_clear_values });
 			clear_regions.push_back(region);
 		}
+
+		for (auto &rtt : m_rtts.m_bound_render_targets)
+		{
+			if (std::get<0>(rtt) != 0)
+			{
+				std::get<1>(rtt)->dirty = false;
+				std::get<1>(rtt)->old_contents = nullptr;
+			}
+		}
 	}
 
 	if (mask & 0x3)
@@ -931,36 +1329,184 @@ void VKGSRender::clear_surface(u32 mask)
 		clear_regions.push_back(region);
 	}
 
-	size_t idx = vk::get_render_pass_location(
-		vk::get_compatible_surface_format(rsx::method_registers.surface_color()).first,
-		vk::get_compatible_depth_surface_format(m_optimal_tiling_supported_formats, surface_depth_format),
-		(u8)targets.size());
-	VkRenderPass current_render_pass = m_render_passes[idx];
+	begin_render_pass();
+	vkCmdClearAttachments(*m_current_command_buffer, (u32)clear_descriptors.size(), clear_descriptors.data(), (u32)clear_regions.size(), clear_regions.data());
 
-	VkRenderPassBeginInfo rp_begin = {};
-	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	rp_begin.renderPass = current_render_pass;
-	rp_begin.framebuffer = m_framebuffer_to_clean.back()->value;
-	rp_begin.renderArea.offset.x = 0;
-	rp_begin.renderArea.offset.y = 0;
-	rp_begin.renderArea.extent.width = m_framebuffer_to_clean.back()->width();
-	rp_begin.renderArea.extent.height = m_framebuffer_to_clean.back()->height();
-
-	vkCmdBeginRenderPass(m_command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdClearAttachments(m_command_buffer, clear_descriptors.size(), clear_descriptors.data(), clear_regions.size(), clear_regions.data());
-
-	vkCmdEndRenderPass(m_command_buffer);
+	if (mask & 0x3)
+	{
+		if (std::get<0>(m_rtts.m_bound_depth_stencil) != 0)
+		{
+			std::get<1>(m_rtts.m_bound_depth_stencil)->dirty = false;
+			std::get<1>(m_rtts.m_bound_depth_stencil)->old_contents = nullptr;
+		}
+	}
 }
 
 void VKGSRender::sync_at_semaphore_release()
 {
-	close_and_submit_command_buffer({}, m_submit_fence);
-	CHECK_RESULT(vkWaitForFences((*m_device), 1, &m_submit_fence, VK_TRUE, ~0ULL));
+	m_flush_draw_buffers = true;
+}
 
-	CHECK_RESULT(vkResetFences(*m_device, 1, &m_submit_fence));
-	CHECK_RESULT(vkResetCommandPool(*m_device, m_command_buffer_pool, 0));
+void VKGSRender::copy_render_targets_to_dma_location()
+{
+	if (!m_flush_draw_buffers)
+		return;
+
+	if (!g_cfg.video.write_color_buffers && !g_cfg.video.write_depth_buffer)
+		return;
+
+	//TODO: Make this asynchronous. Should be similar to a glFlush() but in this case its similar to glFinish
+	//This is due to all the hard waits for fences
+	//TODO: Use a command buffer array to allow explicit draw command tracking
+
+	vk::enter_uninterruptible();
+
+	if (g_cfg.video.write_color_buffers)
+	{
+		for (u8 index = 0; index < rsx::limits::color_buffers_count; index++)
+		{
+			if (!m_surface_info[index].pitch)
+				continue;
+
+			m_texture_cache.flush_memory_to_cache(m_surface_info[index].address, m_surface_info[index].pitch * m_surface_info[index].height,
+					*m_current_command_buffer, m_memory_type_mapping, m_swap_chain->get_present_queue());
+		}
+	}
+
+	if (g_cfg.video.write_depth_buffer)
+	{
+		if (m_depth_surface_info.pitch)
+		{
+			m_texture_cache.flush_memory_to_cache(m_depth_surface_info.address, m_depth_surface_info.pitch * m_depth_surface_info.height,
+				*m_current_command_buffer, m_memory_type_mapping, m_swap_chain->get_present_queue());
+		}
+	}
+
+	vk::leave_uninterruptible();
+
+	m_last_flushable_cb = m_current_cb_index;
+	flush_command_queue();
+
+	m_flush_draw_buffers = false;
+}
+
+void VKGSRender::flush_command_queue(bool hard_sync)
+{
+	close_render_pass();
+	close_and_submit_command_buffer({}, m_current_command_buffer->submit_fence);
+
+	if (hard_sync)
+	{
+		//swap handler checks the pending flag, so call it here
+		process_swap_request();
+
+		//wait for the latest intruction to execute
+		m_current_command_buffer->pending = true;
+		m_current_command_buffer->wait();
+
+		//Clear all command buffer statuses
+		for (auto &cb : m_primary_cb_list)
+			cb.poke();
+
+		m_last_flushable_cb = -1;
+		m_flush_commands = false;
+	}
+	else
+	{
+		//Mark this queue as pending
+		m_current_command_buffer->pending = true;
+		
+		//Grab next cb in line and make it usable
+		m_current_cb_index = (m_current_cb_index + 1) % VK_MAX_ASYNC_CB_COUNT;
+		m_current_command_buffer = &m_primary_cb_list[m_current_cb_index];
+		m_current_command_buffer->reset();
+	}
+
 	open_command_buffer();
+}
+
+void VKGSRender::queue_swap_request()
+{
+	//buffer the swap request and return
+	if (m_swap_command_buffer && m_swap_command_buffer->pending)
+	{
+		//Its probable that no actual drawing took place
+		process_swap_request();
+	}
+
+	m_swap_command_buffer = m_current_command_buffer;
+	close_and_submit_command_buffer({ m_present_semaphore }, m_current_command_buffer->submit_fence);
+
+	//Grab next cb in line and make it usable
+	m_current_cb_index = (m_current_cb_index + 1) % VK_MAX_ASYNC_CB_COUNT;
+	m_current_command_buffer = &m_primary_cb_list[m_current_cb_index];
+	m_current_command_buffer->reset();
+
+	m_swap_command_buffer->pending = true;
+	open_command_buffer();
+}
+
+void VKGSRender::process_swap_request()
+{
+	if (!m_swap_command_buffer)
+		return;
+
+	if (m_swap_command_buffer->pending)
+	{
+		//Perform hard swap here
+		m_swap_command_buffer->wait();
+
+		VkSwapchainKHR swap_chain = (VkSwapchainKHR)(*m_swap_chain);
+
+		VkPresentInfoKHR present = {};
+		present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present.pNext = nullptr;
+		present.swapchainCount = 1;
+		present.pSwapchains = &swap_chain;
+		present.pImageIndices = &m_current_present_image;
+		CHECK_RESULT(m_swap_chain->queuePresentKHR(m_swap_chain->get_present_queue(), &present));
+	}
+
+	//Clean up all the resources from the last frame
+
+	//Feed back damaged resources to the main texture cache for management...
+	//m_texture_cache.merge_dirty_textures(m_rtts.invalidated_resources);
+	
+	m_rtts.invalidated_resources.clear();
+	m_texture_cache.flush();
+
+	if (g_cfg.video.invalidate_surface_cache_every_frame)
+		m_rtts.invalidate_surface_cache_data(&*m_current_command_buffer);
+
+	m_buffer_view_to_clean.clear();
+	m_sampler_to_clean.clear();
+	m_framebuffer_to_clean.clear();
+
+	if (g_cfg.video.overlay)
+	{
+		m_text_writer->reset_descriptors();
+	}
+
+	m_swap_command_buffer = nullptr;
+}
+
+void VKGSRender::do_local_task()
+{
+	if (m_flush_commands)
+	{
+		std::lock_guard<std::mutex> lock(m_flush_queue_mutex);
+
+		//TODO: Determine if a hard sync is necessary
+		//Pipeline barriers later may do a better job synchronizing than wholly stalling the pipeline
+		flush_command_queue();
+
+		m_flush_commands = false;
+		while (m_queued_threads)
+		{
+			_mm_lfence();
+			_mm_pause();
+		}
+	}
 }
 
 bool VKGSRender::do_method(u32 cmd, u32 arg)
@@ -979,172 +1525,185 @@ bool VKGSRender::do_method(u32 cmd, u32 arg)
 	}
 }
 
-bool VKGSRender::load_program()
+bool VKGSRender::load_program(bool fast_update)
 {
-	auto rtt_lookup_func = [this](u32 texaddr, rsx::fragment_texture&, bool is_depth) -> std::tuple<bool, u16>
+	RSXVertexProgram vertex_program;
+	RSXFragmentProgram fragment_program;
+
+	if (!fast_update)
 	{
-		vk::render_target *surface = nullptr;
-		if (!is_depth)
-			surface = m_rtts.get_texture_from_render_target_if_applicable(texaddr);
+		auto rtt_lookup_func = [this](u32 texaddr, rsx::fragment_texture&, bool is_depth) -> std::tuple<bool, u16>
+		{
+			vk::render_target *surface = nullptr;
+			if (!is_depth)
+				surface = m_rtts.get_texture_from_render_target_if_applicable(texaddr);
+			else
+				surface = m_rtts.get_texture_from_depth_stencil_if_applicable(texaddr);
+
+			if (!surface) return std::make_tuple(false, 0);
+
+			return std::make_tuple(true, surface->native_pitch);
+		};
+
+		vertex_program = get_current_vertex_program();
+		fragment_program = get_current_fragment_program(rtt_lookup_func);
+
+		vk::pipeline_props properties = {};
+
+		properties.ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		bool unused;
+		properties.ia.topology = vk::get_appropriate_topology(rsx::method_registers.current_draw_clause.primitive, unused);
+
+		if (rsx::method_registers.restart_index_enabled())
+		{
+			properties.ia.primitiveRestartEnable = VK_TRUE;
+		}
 		else
-			surface = m_rtts.get_texture_from_depth_stencil_if_applicable(texaddr);
-
-		if (!surface) return std::make_tuple(false, 0);
-
-		return std::make_tuple(true, surface->native_pitch);
-	};
-
-	RSXVertexProgram vertex_program = get_current_vertex_program();
-	RSXFragmentProgram fragment_program = get_current_fragment_program(rtt_lookup_func);
-
-	vk::pipeline_props properties = {};
-
-	properties.ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	bool unused;
-	properties.ia.topology = vk::get_appropriate_topology(rsx::method_registers.current_draw_clause.primitive, unused);
-
-	if (rsx::method_registers.restart_index_enabled())
-	{
-		properties.ia.primitiveRestartEnable = VK_TRUE;
-	}
-	else
-		properties.ia.primitiveRestartEnable = VK_FALSE;
+			properties.ia.primitiveRestartEnable = VK_FALSE;
 
 
-	for (int i = 0; i < 4; ++i)
-	{
-		properties.att_state[i].colorWriteMask = 0xf;
-		properties.att_state[i].blendEnable = VK_FALSE;
-	}
+		for (int i = 0; i < 4; ++i)
+		{
+			properties.att_state[i].colorWriteMask = 0xf;
+			properties.att_state[i].blendEnable = VK_FALSE;
+		}
 
-	VkColorComponentFlags mask = 0;
-	if (rsx::method_registers.color_mask_a()) mask |= VK_COLOR_COMPONENT_A_BIT;
-	if (rsx::method_registers.color_mask_b()) mask |= VK_COLOR_COMPONENT_B_BIT;
-	if (rsx::method_registers.color_mask_g()) mask |= VK_COLOR_COMPONENT_G_BIT;
-	if (rsx::method_registers.color_mask_r()) mask |= VK_COLOR_COMPONENT_R_BIT;
+		VkColorComponentFlags mask = 0;
+		if (rsx::method_registers.color_mask_a()) mask |= VK_COLOR_COMPONENT_A_BIT;
+		if (rsx::method_registers.color_mask_b()) mask |= VK_COLOR_COMPONENT_B_BIT;
+		if (rsx::method_registers.color_mask_g()) mask |= VK_COLOR_COMPONENT_G_BIT;
+		if (rsx::method_registers.color_mask_r()) mask |= VK_COLOR_COMPONENT_R_BIT;
 
-	VkColorComponentFlags color_masks[4] = { mask };
+		VkColorComponentFlags color_masks[4] = { mask };
 
-	u8 render_targets[] = { 0, 1, 2, 3 };
-
-	for (u8 idx = 0; idx < m_draw_buffers_count; ++idx)
-	{
-		properties.att_state[render_targets[idx]].colorWriteMask = mask;
-	}
-
-	if (rsx::method_registers.blend_enabled())
-	{
-		VkBlendFactor sfactor_rgb = vk::get_blend_factor(rsx::method_registers.blend_func_sfactor_rgb());
-		VkBlendFactor sfactor_a = vk::get_blend_factor(rsx::method_registers.blend_func_sfactor_a());
-		VkBlendFactor dfactor_rgb = vk::get_blend_factor(rsx::method_registers.blend_func_dfactor_rgb());
-		VkBlendFactor dfactor_a = vk::get_blend_factor(rsx::method_registers.blend_func_dfactor_a());
-
-		VkBlendOp equation_rgb = vk::get_blend_op(rsx::method_registers.blend_equation_rgb());
-		VkBlendOp equation_a = vk::get_blend_op(rsx::method_registers.blend_equation_a());
+		u8 render_targets[] = { 0, 1, 2, 3 };
 
 		for (u8 idx = 0; idx < m_draw_buffers_count; ++idx)
 		{
-			properties.att_state[render_targets[idx]].blendEnable = VK_TRUE;
-			properties.att_state[render_targets[idx]].srcColorBlendFactor = sfactor_rgb;
-			properties.att_state[render_targets[idx]].dstColorBlendFactor = dfactor_rgb;
-			properties.att_state[render_targets[idx]].srcAlphaBlendFactor = sfactor_a;
-			properties.att_state[render_targets[idx]].dstAlphaBlendFactor = dfactor_a;
-			properties.att_state[render_targets[idx]].colorBlendOp = equation_rgb;
-			properties.att_state[render_targets[idx]].alphaBlendOp = equation_a;
+			properties.att_state[render_targets[idx]].colorWriteMask = mask;
 		}
-		
-		auto blend_colors = rsx::get_constant_blend_colors();
-		properties.cs.blendConstants[0] = blend_colors[0];
-		properties.cs.blendConstants[1] = blend_colors[1];
-		properties.cs.blendConstants[2] = blend_colors[2];
-		properties.cs.blendConstants[3] = blend_colors[3];
-	}
-	else
-	{
-		for (u8 idx = 0; idx < m_draw_buffers_count; ++idx)
+
+		if (rsx::method_registers.blend_enabled())
 		{
-			properties.att_state[render_targets[idx]].blendEnable = VK_FALSE;
-		}
-	}
-	
-	properties.cs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	properties.cs.attachmentCount = m_draw_buffers_count;
-	properties.cs.pAttachments = properties.att_state;
-	
-	if (rsx::method_registers.logic_op_enabled())
-	{
-		properties.cs.logicOpEnable = true;
-		properties.cs.logicOp = vk::get_logic_op(rsx::method_registers.logic_operation());
-	}
+			VkBlendFactor sfactor_rgb = vk::get_blend_factor(rsx::method_registers.blend_func_sfactor_rgb());
+			VkBlendFactor sfactor_a = vk::get_blend_factor(rsx::method_registers.blend_func_sfactor_a());
+			VkBlendFactor dfactor_rgb = vk::get_blend_factor(rsx::method_registers.blend_func_dfactor_rgb());
+			VkBlendFactor dfactor_a = vk::get_blend_factor(rsx::method_registers.blend_func_dfactor_a());
 
-	properties.ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	properties.ds.depthWriteEnable = rsx::method_registers.depth_write_enabled() ? VK_TRUE : VK_FALSE;
+			VkBlendOp equation_rgb = vk::get_blend_op(rsx::method_registers.blend_equation_rgb());
+			VkBlendOp equation_a = vk::get_blend_op(rsx::method_registers.blend_equation_a());
 
-	if (rsx::method_registers.depth_bounds_test_enabled())
-	{
-		properties.ds.depthBoundsTestEnable = VK_TRUE;
-		properties.ds.minDepthBounds = rsx::method_registers.depth_bounds_min();
-		properties.ds.maxDepthBounds = rsx::method_registers.depth_bounds_max();
-	}
-	else
-		properties.ds.depthBoundsTestEnable = VK_FALSE;
+			for (u8 idx = 0; idx < m_draw_buffers_count; ++idx)
+			{
+				properties.att_state[render_targets[idx]].blendEnable = VK_TRUE;
+				properties.att_state[render_targets[idx]].srcColorBlendFactor = sfactor_rgb;
+				properties.att_state[render_targets[idx]].dstColorBlendFactor = dfactor_rgb;
+				properties.att_state[render_targets[idx]].srcAlphaBlendFactor = sfactor_a;
+				properties.att_state[render_targets[idx]].dstAlphaBlendFactor = dfactor_a;
+				properties.att_state[render_targets[idx]].colorBlendOp = equation_rgb;
+				properties.att_state[render_targets[idx]].alphaBlendOp = equation_a;
+			}
 
-	if (rsx::method_registers.stencil_test_enabled())
-	{
-		properties.ds.stencilTestEnable = VK_TRUE;
-		properties.ds.front.writeMask = rsx::method_registers.stencil_mask();
-		properties.ds.front.compareMask = rsx::method_registers.stencil_func_mask();
-		properties.ds.front.reference = rsx::method_registers.stencil_func_ref();
-		properties.ds.front.failOp = vk::get_stencil_op(rsx::method_registers.stencil_op_fail());
-		properties.ds.front.passOp = vk::get_stencil_op(rsx::method_registers.stencil_op_zpass());
-		properties.ds.front.depthFailOp = vk::get_stencil_op(rsx::method_registers.stencil_op_zfail());
-		properties.ds.front.compareOp = vk::get_compare_func(rsx::method_registers.stencil_func());
-
-		if (rsx::method_registers.two_sided_stencil_test_enabled())
-		{
-			properties.ds.back.failOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_fail());
-			properties.ds.back.passOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_zpass());
-			properties.ds.back.depthFailOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_zfail());
-			properties.ds.back.compareOp = vk::get_compare_func(rsx::method_registers.back_stencil_func());
+			auto blend_colors = rsx::get_constant_blend_colors();
+			properties.cs.blendConstants[0] = blend_colors[0];
+			properties.cs.blendConstants[1] = blend_colors[1];
+			properties.cs.blendConstants[2] = blend_colors[2];
+			properties.cs.blendConstants[3] = blend_colors[3];
 		}
 		else
-			properties.ds.back = properties.ds.front;
+		{
+			for (u8 idx = 0; idx < m_draw_buffers_count; ++idx)
+			{
+				properties.att_state[render_targets[idx]].blendEnable = VK_FALSE;
+			}
+		}
+
+		properties.cs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		properties.cs.attachmentCount = m_draw_buffers_count;
+		properties.cs.pAttachments = properties.att_state;
+
+		if (rsx::method_registers.logic_op_enabled())
+		{
+			properties.cs.logicOpEnable = true;
+			properties.cs.logicOp = vk::get_logic_op(rsx::method_registers.logic_operation());
+		}
+
+		properties.ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		properties.ds.depthWriteEnable = rsx::method_registers.depth_write_enabled() ? VK_TRUE : VK_FALSE;
+
+		if (rsx::method_registers.depth_bounds_test_enabled())
+		{
+			properties.ds.depthBoundsTestEnable = VK_TRUE;
+			properties.ds.minDepthBounds = rsx::method_registers.depth_bounds_min();
+			properties.ds.maxDepthBounds = rsx::method_registers.depth_bounds_max();
+		}
+		else
+			properties.ds.depthBoundsTestEnable = VK_FALSE;
+
+		if (rsx::method_registers.stencil_test_enabled())
+		{
+			properties.ds.stencilTestEnable = VK_TRUE;
+			properties.ds.front.writeMask = rsx::method_registers.stencil_mask();
+			properties.ds.front.compareMask = rsx::method_registers.stencil_func_mask();
+			properties.ds.front.reference = rsx::method_registers.stencil_func_ref();
+			properties.ds.front.failOp = vk::get_stencil_op(rsx::method_registers.stencil_op_fail());
+			properties.ds.front.passOp = vk::get_stencil_op(rsx::method_registers.stencil_op_zpass());
+			properties.ds.front.depthFailOp = vk::get_stencil_op(rsx::method_registers.stencil_op_zfail());
+			properties.ds.front.compareOp = vk::get_compare_func(rsx::method_registers.stencil_func());
+
+			if (rsx::method_registers.two_sided_stencil_test_enabled())
+			{
+				properties.ds.back.writeMask = rsx::method_registers.back_stencil_mask();
+				properties.ds.back.compareMask = rsx::method_registers.back_stencil_func_mask();
+				properties.ds.back.reference = rsx::method_registers.back_stencil_func_ref();
+				properties.ds.back.failOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_fail());
+				properties.ds.back.passOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_zpass());
+				properties.ds.back.depthFailOp = vk::get_stencil_op(rsx::method_registers.back_stencil_op_zfail());
+				properties.ds.back.compareOp = vk::get_compare_func(rsx::method_registers.back_stencil_func());
+			}
+			else
+				properties.ds.back = properties.ds.front;
+		}
+		else
+			properties.ds.stencilTestEnable = VK_FALSE;
+
+		if (rsx::method_registers.depth_test_enabled())
+		{
+			properties.ds.depthTestEnable = VK_TRUE;
+			properties.ds.depthCompareOp = vk::get_compare_func(rsx::method_registers.depth_func());
+		}
+		else
+			properties.ds.depthTestEnable = VK_FALSE;
+
+		properties.rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		properties.rs.polygonMode = VK_POLYGON_MODE_FILL;
+		properties.rs.depthClampEnable = VK_FALSE;
+		properties.rs.rasterizerDiscardEnable = VK_FALSE;
+		properties.rs.depthBiasEnable = VK_FALSE;
+
+		if (rsx::method_registers.cull_face_enabled())
+			properties.rs.cullMode = vk::get_cull_face(rsx::method_registers.cull_face_mode());
+		else
+			properties.rs.cullMode = VK_CULL_MODE_NONE;
+
+		properties.rs.frontFace = vk::get_front_face(rsx::method_registers.front_face_mode());
+
+		size_t idx = vk::get_render_pass_location(
+			vk::get_compatible_surface_format(rsx::method_registers.surface_color()).first,
+			vk::get_compatible_depth_surface_format(m_optimal_tiling_supported_formats, rsx::method_registers.surface_depth_fmt()),
+			(u8)vk::get_draw_buffers(rsx::method_registers.surface_color_target()).size());
+
+		properties.render_pass = m_render_passes[idx];
+
+		properties.num_targets = m_draw_buffers_count;
+
+		vk::enter_uninterruptible();
+
+		//Load current program from buffer
+		m_program = m_prog_buffer.getGraphicPipelineState(vertex_program, fragment_program, properties, *m_device, pipeline_layout).get();
 	}
 	else
-		properties.ds.stencilTestEnable = VK_FALSE;
-
-	if (rsx::method_registers.depth_test_enabled())
-	{
-		properties.ds.depthTestEnable = VK_TRUE;
-		properties.ds.depthCompareOp = vk::get_compare_func(rsx::method_registers.depth_func());
-	}
-	else
-		properties.ds.depthTestEnable = VK_FALSE;
-
-	properties.rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	properties.rs.polygonMode = VK_POLYGON_MODE_FILL;
-	properties.rs.depthClampEnable = VK_FALSE;
-	properties.rs.rasterizerDiscardEnable = VK_FALSE;
-	properties.rs.depthBiasEnable = VK_FALSE;
-
-	if (rsx::method_registers.cull_face_enabled())
-		properties.rs.cullMode = vk::get_cull_face(rsx::method_registers.cull_face_mode());
-	else
-		properties.rs.cullMode = VK_CULL_MODE_NONE;
-
-	properties.rs.frontFace = vk::get_front_face(rsx::method_registers.front_face_mode());
-
-	size_t idx = vk::get_render_pass_location(
-		vk::get_compatible_surface_format(rsx::method_registers.surface_color()).first,
-		vk::get_compatible_depth_surface_format(m_optimal_tiling_supported_formats, rsx::method_registers.surface_depth_fmt()),
-		(u8)vk::get_draw_buffers(rsx::method_registers.surface_color_target()).size());
-	
-	properties.render_pass = m_render_passes[idx];
-
-	properties.num_targets = m_draw_buffers_count;
-
-	//Load current program from buffer
-	m_program = m_prog_buffer.getGraphicPipelineState(vertex_program, fragment_program, properties, *m_device, pipeline_layout).get();
+		vk::enter_uninterruptible();
 
 	//TODO: Update constant buffers..
 	//1. Update scale-offset matrix
@@ -1154,56 +1713,46 @@ bool VKGSRender::load_program()
 
 	u8 *buf = (u8*)m_uniform_buffer_ring_info.map(scale_offset_offset, 256);
 
-	//TODO: Add case for this in RSXThread
 	/**
 	* NOTE: While VK's coord system resembles GLs, the clip volume is no longer symetrical in z
 	* Its like D3D without the flip in y (depending on how you build the spir-v)
 	*/
-	{
-		int clip_w = rsx::method_registers.surface_clip_width();
-		int clip_h = rsx::method_registers.surface_clip_height();
+	fill_scale_offset_data(buf, false);
+	fill_user_clip_data(buf + 64);
 
-		float scale_x = rsx::method_registers.viewport_scale_x() / (clip_w / 2.f);
-		float offset_x = rsx::method_registers.viewport_offset_x() - (clip_w / 2.f);
-		offset_x /= clip_w / 2.f;
-
-		float scale_y = rsx::method_registers.viewport_scale_y() / (clip_h / 2.f);
-		float offset_y = (rsx::method_registers.viewport_offset_y() - (clip_h / 2.f));
-		offset_y /= clip_h / 2.f;
-
-		float scale_z = rsx::method_registers.viewport_scale_z();
-		float offset_z = rsx::method_registers.viewport_offset_z();
-
-		float one = 1.f;
-
-		stream_vector(buf, (u32&)scale_x, 0, 0, (u32&)offset_x);
-		stream_vector((char*)buf + 16, 0, (u32&)scale_y, 0, (u32&)offset_y);
-		stream_vector((char*)buf + 32, 0, 0, (u32&)scale_z, (u32&)offset_z);
-		stream_vector((char*)buf + 48, 0, 0, 0, (u32&)one);
-	}
-
-	m_uniform_buffer_ring_info.unmap();
-
-	const size_t vertex_constants_offset = m_uniform_buffer_ring_info.alloc<256>(512 * 4 * sizeof(float));
-	buf = (u8*)m_uniform_buffer_ring_info.map(vertex_constants_offset, 512 * 4 * sizeof(float));
-	fill_vertex_program_constants_data(buf);
-	*(reinterpret_cast<u32*>(buf + (468 * 4 * sizeof(float)))) = rsx::method_registers.transform_branch_bits();
-	m_uniform_buffer_ring_info.unmap();
-
-	const size_t fragment_constants_sz = m_prog_buffer.get_fragment_constants_buffer_size(fragment_program);
-	const size_t fragment_buffer_sz = fragment_constants_sz + (17 * 4 * sizeof(float));
-	const size_t fragment_constants_offset = m_uniform_buffer_ring_info.alloc<256>(fragment_buffer_sz);
-
-	buf = (u8*)m_uniform_buffer_ring_info.map(fragment_constants_offset, fragment_buffer_sz);
-	if (fragment_constants_sz)
-		m_prog_buffer.fill_fragment_constants_buffer({ reinterpret_cast<float*>(buf), ::narrow<int>(fragment_constants_sz) }, fragment_program);
-
-	fill_fragment_state_buffer(buf+fragment_constants_sz, fragment_program);
 	m_uniform_buffer_ring_info.unmap();
 
 	m_program->bind_uniform({ m_uniform_buffer_ring_info.heap->value, scale_offset_offset, 256 }, SCALE_OFFSET_BIND_SLOT, descriptor_sets);
-	m_program->bind_uniform({ m_uniform_buffer_ring_info.heap->value, vertex_constants_offset, 512 * 4 * sizeof(float) }, VERTEX_CONSTANT_BUFFERS_BIND_SLOT, descriptor_sets);	
-	m_program->bind_uniform({ m_uniform_buffer_ring_info.heap->value, fragment_constants_offset, fragment_buffer_sz }, FRAGMENT_CONSTANT_BUFFERS_BIND_SLOT, descriptor_sets);
+
+	if (!fast_update || m_transform_constants_dirty)
+	{
+		const size_t vertex_constants_offset = m_uniform_buffer_ring_info.alloc<256>(512 * 4 * sizeof(float));
+		buf = (u8*)m_uniform_buffer_ring_info.map(vertex_constants_offset, 512 * 4 * sizeof(float));
+		fill_vertex_program_constants_data(buf);
+		*(reinterpret_cast<u32*>(buf + (468 * 4 * sizeof(float)))) = rsx::method_registers.transform_branch_bits();
+		m_uniform_buffer_ring_info.unmap();
+
+		m_program->bind_uniform({ m_uniform_buffer_ring_info.heap->value, vertex_constants_offset, 512 * 4 * sizeof(float) }, VERTEX_CONSTANT_BUFFERS_BIND_SLOT, descriptor_sets);
+		m_transform_constants_dirty = false;
+	}
+
+	if (!fast_update)
+	{
+		const size_t fragment_constants_sz = m_prog_buffer.get_fragment_constants_buffer_size(fragment_program);
+		const size_t fragment_buffer_sz = fragment_constants_sz + (17 * 4 * sizeof(float));
+		const size_t fragment_constants_offset = m_uniform_buffer_ring_info.alloc<256>(fragment_buffer_sz);
+
+		buf = (u8*)m_uniform_buffer_ring_info.map(fragment_constants_offset, fragment_buffer_sz);
+		if (fragment_constants_sz)
+			m_prog_buffer.fill_fragment_constants_buffer({ reinterpret_cast<float*>(buf), ::narrow<int>(fragment_constants_sz) }, fragment_program);
+
+		fill_fragment_state_buffer(buf + fragment_constants_sz, fragment_program);
+		m_uniform_buffer_ring_info.unmap();
+
+		m_program->bind_uniform({ m_uniform_buffer_ring_info.heap->value, fragment_constants_offset, fragment_buffer_sz }, FRAGMENT_CONSTANT_BUFFERS_BIND_SLOT, descriptor_sets);
+	}
+
+	vk::leave_uninterruptible();
 
 	return true;
 }
@@ -1234,6 +1783,9 @@ static const u32 mr_color_pitch[rsx::limits::color_buffers_count] =
 
 void VKGSRender::init_buffers(bool skip_reading)
 {
+	//Clear any pending swap requests
+	process_swap_request();
+
 	prepare_rtts();
 
 	if (!skip_reading)
@@ -1252,17 +1804,16 @@ void VKGSRender::write_buffers()
 {
 }
 
-void VKGSRender::close_and_submit_command_buffer(const std::vector<VkSemaphore> &semaphores, VkFence fence)
+void VKGSRender::close_and_submit_command_buffer(const std::vector<VkSemaphore> &semaphores, VkFence fence, VkPipelineStageFlags pipeline_stage_flags)
 {
-	CHECK_RESULT(vkEndCommandBuffer(m_command_buffer));
+	CHECK_RESULT(vkEndCommandBuffer(*m_current_command_buffer));
 
-	VkPipelineStageFlags pipe_stage_flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	VkCommandBuffer cmd = m_command_buffer;
+	VkCommandBuffer cmd = *m_current_command_buffer;
 
 	VkSubmitInfo infos = {};
 	infos.commandBufferCount = 1;
 	infos.pCommandBuffers = &cmd;
-	infos.pWaitDstStageMask = &pipe_stage_flags;
+	infos.pWaitDstStageMask = &pipeline_stage_flags;
 	infos.pWaitSemaphores = semaphores.data();
 	infos.waitSemaphoreCount = static_cast<uint32_t>(semaphores.size());
 	infos.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1279,7 +1830,7 @@ void VKGSRender::open_command_buffer()
 	begin_infos.pInheritanceInfo = &inheritance_info;
 	begin_infos.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_infos.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	CHECK_RESULT(vkBeginCommandBuffer(m_command_buffer, &begin_infos));
+	CHECK_RESULT(vkBeginCommandBuffer(*m_current_command_buffer, &begin_infos));
 }
 
 
@@ -1288,6 +1839,9 @@ void VKGSRender::prepare_rtts()
 	if (!m_rtts_dirty)
 		return;
 
+	close_render_pass();
+	copy_render_targets_to_dma_location();
+
 	m_rtts_dirty = false;
 
 	u32 clip_width = rsx::method_registers.surface_clip_width();
@@ -1295,16 +1849,43 @@ void VKGSRender::prepare_rtts()
 	u32 clip_x = rsx::method_registers.surface_clip_origin_x();
 	u32 clip_y = rsx::method_registers.surface_clip_origin_y();
 
-	m_rtts.prepare_render_target(&m_command_buffer,
+	if (clip_width == 0 || clip_height == 0)
+	{
+		LOG_ERROR(RSX, "Invalid framebuffer setup, w=%d, h=%d", clip_width, clip_height);
+		framebuffer_status_valid = false;
+	}
+
+	framebuffer_status_valid = true;
+
+	auto surface_addresses = get_color_surface_addresses();
+	auto zeta_address = get_zeta_surface_address();
+	
+	const u32 surface_pitchs[] = { rsx::method_registers.surface_a_pitch(), rsx::method_registers.surface_b_pitch(),
+			rsx::method_registers.surface_c_pitch(), rsx::method_registers.surface_d_pitch() };
+
+	m_rtts.prepare_render_target(&*m_current_command_buffer,
 		rsx::method_registers.surface_color(), rsx::method_registers.surface_depth_fmt(),
-		rsx::method_registers.surface_clip_width(), rsx::method_registers.surface_clip_height(),
+		clip_width, clip_height,
 		rsx::method_registers.surface_color_target(),
-		get_color_surface_addresses(), get_zeta_surface_address(),
-		(*m_device), &m_command_buffer, m_optimal_tiling_supported_formats, m_memory_type_mapping);
+		surface_addresses, zeta_address,
+		(*m_device), &*m_current_command_buffer, m_optimal_tiling_supported_formats, m_memory_type_mapping);
+
+	//Reset framebuffer information
+	for (u8 i = 0; i < rsx::limits::color_buffers_count; ++i)
+	{
+		m_surface_info[i].address = m_surface_info[i].pitch = 0;
+		m_surface_info[i].width = clip_width;
+		m_surface_info[i].height = clip_height;
+		m_surface_info[i].color_format = rsx::method_registers.surface_color();
+	}
+
+	m_depth_surface_info.address = m_depth_surface_info.pitch = 0;
+	m_depth_surface_info.width = clip_width;
+	m_depth_surface_info.height = clip_height;
+	m_depth_surface_info.depth_format = rsx::method_registers.surface_depth_fmt();
 
 	//Bind created rtts as current fbo...
 	std::vector<u8> draw_buffers = vk::get_draw_buffers(rsx::method_registers.surface_color_target());
-
 	std::vector<std::unique_ptr<vk::image_view>> fbo_images;
 
 	for (u8 index : draw_buffers)
@@ -1319,6 +1900,16 @@ void VKGSRender::prepare_rtts()
 		subres.levelCount = 1;
 
 		fbo_images.push_back(std::make_unique<vk::image_view>(*m_device, raw->value, VK_IMAGE_VIEW_TYPE_2D, raw->info.format, vk::default_component_map(), subres));
+
+		m_surface_info[index].address = surface_addresses[index];
+		m_surface_info[index].pitch = surface_pitchs[index];
+
+		if (surface_pitchs[index] <= 64)
+		{
+			if (clip_width > surface_pitchs[index])
+				//Ignore this buffer (usually set to 64)
+				m_surface_info[index].pitch = 0;
+		}
 	}
 
 	m_draw_buffers_count = static_cast<u32>(fbo_images.size());
@@ -1335,6 +1926,37 @@ void VKGSRender::prepare_rtts()
 		subres.levelCount = 1;
 
 		fbo_images.push_back(std::make_unique<vk::image_view>(*m_device, raw->value, VK_IMAGE_VIEW_TYPE_2D, raw->info.format, vk::default_component_map(), subres));
+
+		m_depth_surface_info.address = zeta_address;
+		m_depth_surface_info.pitch = rsx::method_registers.surface_z_pitch();
+
+		if (m_depth_surface_info.pitch <= 64 && clip_width > m_depth_surface_info.pitch)
+			m_depth_surface_info.pitch = 0;
+	}
+
+	if (g_cfg.video.write_color_buffers)
+	{
+		for (u8 index : draw_buffers)
+		{
+			if (!m_surface_info[index].address || !m_surface_info[index].pitch) continue;
+			const u32 range = m_surface_info[index].pitch * m_surface_info[index].height;
+
+			m_texture_cache.lock_memory_region(std::get<1>(m_rtts.m_bound_render_targets[index]), m_surface_info[index].address, range,
+					m_surface_info[index].width, m_surface_info[index].height);
+		}
+	}
+
+	if (g_cfg.video.write_depth_buffer)
+	{
+		if (m_depth_surface_info.address && m_depth_surface_info.pitch)
+		{
+			u32 pitch = m_depth_surface_info.width * 2;
+			if (m_depth_surface_info.depth_format != rsx::surface_depth_format::z16) pitch *= 2;
+
+			const u32 range = pitch * m_depth_surface_info.height;
+			m_texture_cache.lock_memory_region(std::get<1>(m_rtts.m_bound_depth_stencil), m_depth_surface_info.address, range,
+				m_depth_surface_info.width, m_depth_surface_info.height);
+		}
 	}
 
 	size_t idx = vk::get_render_pass_location(vk::get_compatible_surface_format(rsx::method_registers.surface_color()).first, vk::get_compatible_depth_surface_format(m_optimal_tiling_supported_formats, rsx::method_registers.surface_depth_fmt()), (u8)draw_buffers.size());
@@ -1346,6 +1968,24 @@ void VKGSRender::prepare_rtts()
 
 void VKGSRender::flip(int buffer)
 {
+	if (skip_frame)
+	{
+		m_frame->flip(m_context);
+		rsx::thread::flip(buffer);
+
+		if (!skip_frame)
+		{
+			m_draw_calls = 0;
+			m_instanced_draws = 0;
+			m_draw_time = 0;
+			m_setup_time = 0;
+			m_vertex_upload_time = 0;
+			m_textures_upload_time = 0;
+		}
+
+		return;
+	}
+
 	bool resize_screen = false;
 
 	if (m_client_height != m_frame->client_height() ||
@@ -1357,13 +1997,14 @@ void VKGSRender::flip(int buffer)
 
 	std::chrono::time_point<steady_clock> flip_start = steady_clock::now();
 
+	close_render_pass();
+	process_swap_request();
+
 	if (!resize_screen)
 	{
 		u32 buffer_width = gcm_buffers[buffer].width;
 		u32 buffer_height = gcm_buffers[buffer].height;
 		u32 buffer_pitch = gcm_buffers[buffer].pitch;
-
-		rsx::tiled_region buffer_region = get_tiled_address(gcm_buffers[buffer].offset, CELL_GCM_LOCATION_LOCAL);
 
 		areai screen_area = coordi({}, { (int)buffer_width, (int)buffer_height });
 
@@ -1372,24 +2013,25 @@ void VKGSRender::flip(int buffer)
 		sizei csize = { m_frame->client_width(), m_frame->client_height() };
 		sizei new_size = csize;
 
-		const double aq = (double)buffer_width / buffer_height;
-		const double rq = (double)new_size.width / new_size.height;
-		const double q = aq / rq;
+		if (!g_cfg.video.stretch_to_display_area)
+		{
+			const double aq = (double)buffer_width / buffer_height;
+			const double rq = (double)new_size.width / new_size.height;
+			const double q = aq / rq;
 
-		if (q > 1.0)
-		{
-			new_size.height = int(new_size.height / q);
-			aspect_ratio.y = (csize.height - new_size.height) / 2;
-		}
-		else if (q < 1.0)
-		{
-			new_size.width = int(new_size.width * q);
-			aspect_ratio.x = (csize.width - new_size.width) / 2;
+			if (q > 1.0)
+			{
+				new_size.height = int(new_size.height / q);
+				aspect_ratio.y = (csize.height - new_size.height) / 2;
+			}
+			else if (q < 1.0)
+			{
+				new_size.width = int(new_size.width * q);
+				aspect_ratio.x = (csize.width - new_size.width) / 2;
+			}
 		}
 
 		aspect_ratio.size = new_size;
-
-		VkSwapchainKHR swap_chain = (VkSwapchainKHR)(*m_swap_chain);
 
 		//Prepare surface for new frame
 		CHECK_RESULT(vkAcquireNextImageKHR((*m_device), (*m_swap_chain), 0, m_present_semaphore, VK_NULL_HANDLE, &m_current_present_image));
@@ -1405,7 +2047,7 @@ void VKGSRender::flip(int buffer)
 		VkImage target_image = m_swap_chain->get_swap_chain_image(m_current_present_image);
 		if (image_to_flip)
 		{
-			vk::copy_scaled_image(m_command_buffer, image_to_flip, target_image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			vk::copy_scaled_image(*m_current_command_buffer, image_to_flip, target_image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				0, 0, buffer_width, buffer_height, aspect_ratio.x, aspect_ratio.y, aspect_ratio.width, aspect_ratio.height, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
 		else
@@ -1413,14 +2055,14 @@ void VKGSRender::flip(int buffer)
 			//No draw call was issued!
 			VkImageSubresourceRange range = vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT);
 			VkClearColorValue clear_black = { 0 };
-			vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_GENERAL, range);
-			vkCmdClearColorImage(m_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_GENERAL, &clear_black, 1, &range);
-			vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, range);
+			vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_GENERAL, range);
+			vkCmdClearColorImage(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_GENERAL, &clear_black, 1, &range);
+			vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(m_current_present_image), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, range);
 		}
 
 		std::unique_ptr<vk::framebuffer> direct_fbo;
 		std::vector<std::unique_ptr<vk::image_view>> swap_image_view;
-		if (g_cfg_rsx_overlay)
+		if (g_cfg.video.overlay)
 		{
 			//Change the image layout whilst setting up a dependency on waiting for the blit op to finish before we start writing
 			auto subres = vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1435,7 +2077,7 @@ void VKGSRender::flip(int buffer)
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.subresourceRange = subres;
 
-			vkCmdPipelineBarrier(m_command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &barrier);
+			vkCmdPipelineBarrier(*m_current_command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &barrier);
 
 			size_t idx = vk::get_render_pass_location(m_swap_chain->get_surface_format(), VK_FORMAT_UNDEFINED, 1);
 			VkRenderPass single_target_pass = m_render_passes[idx];
@@ -1443,26 +2085,18 @@ void VKGSRender::flip(int buffer)
 			swap_image_view.push_back(std::make_unique<vk::image_view>(*m_device, target_image, VK_IMAGE_VIEW_TYPE_2D, m_swap_chain->get_surface_format(), vk::default_component_map(), subres));
 			direct_fbo.reset(new vk::framebuffer(*m_device, single_target_pass, m_client_width, m_client_height, std::move(swap_image_view)));
 			
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 0, direct_fbo->width(), direct_fbo->height(), "draw calls: " + std::to_string(m_draw_calls));
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 18, direct_fbo->width(), direct_fbo->height(), "draw call setup: " + std::to_string(m_setup_time) + "us");
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 36, direct_fbo->width(), direct_fbo->height(), "vertex upload time: " + std::to_string(m_vertex_upload_time) + "us");
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 54, direct_fbo->width(), direct_fbo->height(), "texture upload time: " + std::to_string(m_textures_upload_time) + "us");
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 72, direct_fbo->width(), direct_fbo->height(), "draw call execution: " + std::to_string(m_draw_time) + "us");
-			m_text_writer->print_text(m_command_buffer, *direct_fbo, 0, 90, direct_fbo->width(), direct_fbo->height(), "submit and flip: " + std::to_string(m_flip_time) + "us");
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 0, direct_fbo->width(), direct_fbo->height(), "draw calls: " + std::to_string(m_draw_calls) + ", instanced repeats: " + std::to_string(m_instanced_draws));
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 18, direct_fbo->width(), direct_fbo->height(), "draw call setup: " + std::to_string(m_setup_time) + "us");
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 36, direct_fbo->width(), direct_fbo->height(), "vertex upload time: " + std::to_string(m_vertex_upload_time) + "us");
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 54, direct_fbo->width(), direct_fbo->height(), "texture upload time: " + std::to_string(m_textures_upload_time) + "us");
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 72, direct_fbo->width(), direct_fbo->height(), "draw call execution: " + std::to_string(m_draw_time) + "us");
+			m_text_writer->print_text(*m_current_command_buffer, *direct_fbo, 0, 90, direct_fbo->width(), direct_fbo->height(), "submit and flip: " + std::to_string(m_flip_time) + "us");
 			
-			vk::change_image_layout(m_command_buffer, target_image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, subres);
+			vk::change_image_layout(*m_current_command_buffer, target_image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, subres);
 		}
 
-		close_and_submit_command_buffer({ m_present_semaphore }, m_submit_fence);
-		CHECK_RESULT(vkWaitForFences((*m_device), 1, &m_submit_fence, VK_TRUE, ~0ULL));
-
-		VkPresentInfoKHR present = {};
-		present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		present.pNext = nullptr;
-		present.swapchainCount = 1;
-		present.pSwapchains = &swap_chain;
-		present.pImageIndices = &m_current_present_image;
-		CHECK_RESULT(m_swap_chain->queuePresentKHR(m_swap_chain->get_present_queue(), &present));
+		m_framebuffer_to_clean.push_back(std::move(direct_fbo));
+		queue_swap_request();
 	}
 	else
 	{
@@ -1472,7 +2106,8 @@ void VKGSRender::flip(int buffer)
 		* and there are no explicit methods to ensure that the presentation engine is not using the images at all.
 		*/
 
-		CHECK_RESULT(vkEndCommandBuffer(m_command_buffer));
+		//NOTE: This operation will create a hard sync point
+		CHECK_RESULT(vkEndCommandBuffer(*m_current_command_buffer));
 
 		//Will have to block until rendering is completed
 		VkFence resize_fence = VK_NULL_HANDLE;
@@ -1506,19 +2141,19 @@ void VKGSRender::flip(int buffer)
 		m_swap_chain->init_swapchain(m_client_width, m_client_height);
 
 		//Prepare new swapchain images for use
-		CHECK_RESULT(vkResetCommandPool(*m_device, m_command_buffer_pool, 0));
+		m_current_command_buffer->reset();
 		open_command_buffer();
 
 		for (u32 i = 0; i < m_swap_chain->get_swap_image_count(); ++i)
 		{
-			vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(i),
+			vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i),
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
 				vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT));
 
 			VkClearColorValue clear_color{};
 			auto range = vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT);
-			vkCmdClearColorImage(m_command_buffer, m_swap_chain->get_swap_chain_image(i), VK_IMAGE_LAYOUT_GENERAL, &clear_color, 1, &range);
-			vk::change_image_layout(m_command_buffer, m_swap_chain->get_swap_chain_image(i),
+			vkCmdClearColorImage(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i), VK_IMAGE_LAYOUT_GENERAL, &clear_color, 1, &range);
+			vk::change_image_layout(*m_current_command_buffer, m_swap_chain->get_swap_chain_image(i),
 				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				vk::get_image_subresource_range(0, 0, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT));
 		}
@@ -1527,40 +2162,35 @@ void VKGSRender::flip(int buffer)
 		close_and_submit_command_buffer({}, resize_fence);
 		CHECK_RESULT(vkWaitForFences((*m_device), 1, &resize_fence, VK_TRUE, UINT64_MAX));
 		vkDestroyFence((*m_device), resize_fence, nullptr);
+
+		m_current_command_buffer->reset();
+		open_command_buffer();
+
+		//Do cleanup
+		m_swap_command_buffer = m_current_command_buffer;
+		process_swap_request();
 	}
 
 	std::chrono::time_point<steady_clock> flip_end = steady_clock::now();
 	m_flip_time = std::chrono::duration_cast<std::chrono::microseconds>(flip_end - flip_start).count();
 
-	m_uniform_buffer_ring_info.m_get_pos = m_uniform_buffer_ring_info.get_current_put_pos_minus_one();
-	m_index_buffer_ring_info.m_get_pos = m_index_buffer_ring_info.get_current_put_pos_minus_one();
-	m_attrib_ring_info.m_get_pos = m_attrib_ring_info.get_current_put_pos_minus_one();
-	m_texture_upload_buffer_ring_info.m_get_pos = m_texture_upload_buffer_ring_info.get_current_put_pos_minus_one();
+	m_uniform_buffer_ring_info.reset_allocation_stats();
+	m_index_buffer_ring_info.reset_allocation_stats();
+	m_attrib_ring_info.reset_allocation_stats();
+	m_texture_upload_buffer_ring_info.reset_allocation_stats();
 
-	//Feed back damaged resources to the main texture cache for management...
-//	m_texture_cache.merge_dirty_textures(m_rtts.invalidated_resources);
-	m_rtts.invalidated_resources.clear();
-	m_texture_cache.flush();
+	//NOTE:Resource destruction is handled within the real swap handler
 
-	m_buffer_view_to_clean.clear();
-	m_sampler_to_clean.clear();
-	m_framebuffer_to_clean.clear();
+	m_frame->flip(m_context);
+	rsx::thread::flip(buffer);
 
-	if (g_cfg_rsx_overlay)
-	{
-		m_text_writer->reset_descriptors();
-	}
-
-	vkResetDescriptorPool(*m_device, descriptor_pool, 0);
-	CHECK_RESULT(vkResetFences(*m_device, 1, &m_submit_fence));
-	CHECK_RESULT(vkResetCommandPool(*m_device, m_command_buffer_pool, 0));
-	open_command_buffer();
+	//Do not reset perf counters if we are skipping the next frame
+	if (skip_frame) return;
 
 	m_draw_calls = 0;
+	m_instanced_draws = 0;
 	m_draw_time = 0;
 	m_setup_time = 0;
 	m_vertex_upload_time = 0;
 	m_textures_upload_time = 0;
-	m_used_descriptors = 0;
-	m_frame->flip(m_context);
 }
