@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <stack>
 #include <deque>
@@ -63,7 +63,7 @@ namespace rsx
 		rsx::vertex_base_type type;
 		u8 attribute_size;
 		u8 stride;
-		gsl::span<const gsl::byte> data;
+		gsl::multi_span<const gsl::byte> data;
 		u8 index;
 	};
 
@@ -95,7 +95,7 @@ namespace rsx
 		*/
 		std::vector<std::pair<u32, u32>> ranges_to_fetch_in_index_buffer;
 
-		gsl::span<const gsl::byte> raw_index_buffer;
+		gsl::multi_span<const gsl::byte> raw_index_buffer;
 	};
 
 	struct draw_inlined_array
@@ -142,6 +142,8 @@ namespace rsx
 		u32 gcm_current_buffer;
 		u32 ctxt_addr;
 		u32 label_addr;
+        u32 nv406e_semaphore_addr;
+        u32 nv4097_semaphore_index;
 
 		u32 local_mem_addr, main_mem_addr;
 		bool strict_ordering[0x1000];
@@ -209,8 +211,8 @@ namespace rsx
 		virtual u64 timestamp() const;
 		virtual bool on_access_violation(u32 /*address*/, bool /*is_writing*/) { return false; }
 
-		gsl::span<const gsl::byte> get_raw_index_array(const std::vector<std::pair<u32, u32> >& draw_indexed_clause) const;
-		gsl::span<const gsl::byte> get_raw_vertex_buffer(const rsx::data_array_format_info&, u32 base_offset, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;
+		gsl::multi_span<const gsl::byte> get_raw_index_array(const std::vector<std::pair<u32, u32> >& draw_indexed_clause) const;
+		gsl::multi_span<const gsl::byte> get_raw_vertex_buffer(const rsx::data_array_format_info&, u32 base_offset, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;
 
 		std::vector<std::variant<vertex_array_buffer, vertex_array_register, empty_vertex_array>>
 		get_vertex_buffers(const rsx::rsx_state& state, const std::vector<std::pair<u32, u32>>& vertex_ranges) const;

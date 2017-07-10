@@ -1,4 +1,4 @@
-
+﻿
 #include "rsx_debugger.h"
 
 enum GCMEnumTypes
@@ -32,7 +32,7 @@ rsx_debugger::rsx_debugger(QWidget* parent)
 	QVBoxLayout* vbox_tools = new QVBoxLayout();
 
 	// Controls
-	QGroupBox* gb_controls = new QGroupBox(tr("RSX Debugger Controls"), this);
+	QGroupBox* gb_controls = new QGroupBox(tr("RSX Debugger controls"), this);
 	QHBoxLayout* hbox_controls = new QHBoxLayout();
 
 	// Controls: Address
@@ -113,8 +113,8 @@ rsx_debugger::rsx_debugger(QWidget* parent)
 	};
 
 	m_list_commands = l_addRSXTab(m_list_commands, tr("RSX Commands"), 4);
-	m_list_captured_frame = l_addRSXTab(m_list_captured_frame, tr("Captured Frame"), 1);
-	m_list_captured_draw_calls = l_addRSXTab(m_list_captured_draw_calls, tr("Captured Draw Calls"), 1);
+	m_list_captured_frame = l_addRSXTab(m_list_captured_frame, tr("Captured frame"), 1);
+	m_list_captured_draw_calls = l_addRSXTab(m_list_captured_draw_calls, tr("Captured draw calls"), 1);
 	m_list_flags = l_addRSXTab(m_list_flags, tr("Flags"), 2);
 	m_list_lightning = l_addRSXTab(m_list_lightning, tr("Lightning"), 2);
 	m_list_texture = l_addRSXTab(m_list_texture, tr("Texture"), 9);
@@ -196,12 +196,12 @@ rsx_debugger::rsx_debugger(QWidget* parent)
 	//Buffers
 	QVBoxLayout* vbox_buffers1 = new QVBoxLayout();
 	QVBoxLayout* vbox_buffers2 = new QVBoxLayout();
-	QGroupBox* gb_buffers_colorA  = new QGroupBox(tr("Color Buffer A"), p_buffers);
-	QGroupBox* gb_buffers_colorB  = new QGroupBox(tr("Color Buffer B"), p_buffers);
-	QGroupBox* gb_buffers_colorC  = new QGroupBox(tr("Color Buffer C"), p_buffers);
-	QGroupBox* gb_buffers_colorD  = new QGroupBox(tr("Color Buffer D"), p_buffers);
-	QGroupBox* gb_buffers_depth   = new QGroupBox(tr("Depth Buffer"), p_buffers);
-	QGroupBox* gb_buffers_stencil = new QGroupBox(tr("Stencil Buffer"), p_buffers);
+	QGroupBox* gb_buffers_colorA  = new QGroupBox(tr("Color buffer A"), p_buffers);
+	QGroupBox* gb_buffers_colorB  = new QGroupBox(tr("Color buffer B"), p_buffers);
+	QGroupBox* gb_buffers_colorC  = new QGroupBox(tr("Color buffer C"), p_buffers);
+	QGroupBox* gb_buffers_colorD  = new QGroupBox(tr("Color buffer D"), p_buffers);
+	QGroupBox* gb_buffers_depth   = new QGroupBox(tr("Depth buffer"), p_buffers);
+	QGroupBox* gb_buffers_stencil = new QGroupBox(tr("Stencil buffer"), p_buffers);
 	QGroupBox* gb_buffers_text    = new QGroupBox(tr("Texture"), p_buffers);
 	QHBoxLayout* hbox_buffers_colorA	= new QHBoxLayout();
 	QHBoxLayout* hbox_buffers_colorB	= new QHBoxLayout();
@@ -445,18 +445,18 @@ void Buffer::mouseDoubleClickEvent(QMouseEvent* event)
 
 namespace
 {
-	std::array<u8, 3> get_value(gsl::span<const gsl::byte> orig_buffer, rsx::surface_color_format format, size_t idx)
+	std::array<u8, 3> get_value(gsl::multi_span<const gsl::byte> orig_buffer, rsx::surface_color_format format, size_t idx)
 	{
 		switch (format)
 		{
 		case rsx::surface_color_format::b8:
 		{
-			u8 value = gsl::as_span<const u8>(orig_buffer)[idx];
+			u8 value = gsl::as_multi_span<const u8>(orig_buffer)[idx];
 			return{ value, value, value };
 		}
 		case rsx::surface_color_format::x32:
 		{
-			be_t<u32> stored_val = gsl::as_span<const be_t<u32>>(orig_buffer)[idx];
+			be_t<u32> stored_val = gsl::as_multi_span<const be_t<u32>>(orig_buffer)[idx];
 			u32 swapped_val = stored_val;
 			f32 float_val = (f32&)swapped_val;
 			u8 val = float_val * 255.f;
@@ -466,19 +466,19 @@ namespace
 		case rsx::surface_color_format::x8b8g8r8_o8b8g8r8:
 		case rsx::surface_color_format::x8b8g8r8_z8b8g8r8:
 		{
-			auto ptr = gsl::as_span<const u8>(orig_buffer);
+			auto ptr = gsl::as_multi_span<const u8>(orig_buffer);
 			return{ ptr[1 + idx * 4], ptr[2 + idx * 4], ptr[3 + idx * 4] };
 		}
 		case rsx::surface_color_format::a8r8g8b8:
 		case rsx::surface_color_format::x8r8g8b8_o8r8g8b8:
 		case rsx::surface_color_format::x8r8g8b8_z8r8g8b8:
 		{
-			auto ptr = gsl::as_span<const u8>(orig_buffer);
+			auto ptr = gsl::as_multi_span<const u8>(orig_buffer);
 			return{ ptr[3 + idx * 4], ptr[2 + idx * 4], ptr[1 + idx * 4] };
 		}
 		case rsx::surface_color_format::w16z16y16x16:
 		{
-			auto ptr = gsl::as_span<const u16>(orig_buffer);
+			auto ptr = gsl::as_multi_span<const u16>(orig_buffer);
 			f16 h0 = f16(ptr[4 * idx]);
 			f16 h1 = f16(ptr[4 * idx + 1]);
 			f16 h2 = f16(ptr[4 * idx + 2]);
@@ -503,7 +503,7 @@ namespace
 	/**
 	 * Return a new buffer that can be passed to QImage.
 	 */
-	u8* convert_to_QImage_buffer(rsx::surface_color_format format, gsl::span<const gsl::byte> orig_buffer, size_t width, size_t height) noexcept
+	u8* convert_to_QImage_buffer(rsx::surface_color_format format, gsl::multi_span<const gsl::byte> orig_buffer, size_t width, size_t height) noexcept
 	{
 		unsigned char* buffer = (unsigned char*)malloc(width * height * 4);
 		for (u32 i = 0; i < width * height; i++)
@@ -549,7 +549,7 @@ void rsx_debugger::OnClickDrawCalls()
 	{
 		if (width && height && !draw_call.depth_stencil[0].empty())
 		{
-			gsl::span<const gsl::byte> orig_buffer = draw_call.depth_stencil[0];
+			gsl::multi_span<const gsl::byte> orig_buffer = draw_call.depth_stencil[0];
 			unsigned char *buffer = (unsigned char *)malloc(width * height * 4);
 
 			if (draw_call.state.surface_depth_fmt() == rsx::surface_depth_format::z24s8)
@@ -558,7 +558,7 @@ void rsx_debugger::OnClickDrawCalls()
 				{
 					for (u32 col = 0; col < width; col++)
 					{
-						u32 depth_val = gsl::as_span<const u32>(orig_buffer)[row * width + col];
+						u32 depth_val = gsl::as_multi_span<const u32>(orig_buffer)[row * width + col];
 						u8 displayed_depth_val = 255 * depth_val / 0xFFFFFF;
 						buffer[4 * col + 0 + width * row * 4] = displayed_depth_val;
 						buffer[4 * col + 1 + width * row * 4] = displayed_depth_val;
@@ -573,7 +573,7 @@ void rsx_debugger::OnClickDrawCalls()
 				{
 					for (u32 col = 0; col < width; col++)
 					{
-						u16 depth_val = gsl::as_span<const u16>(orig_buffer)[row * width + col];
+						u16 depth_val = gsl::as_multi_span<const u16>(orig_buffer)[row * width + col];
 						u8 displayed_depth_val = 255 * depth_val / 0xFFFF;
 						buffer[4 * col + 0 + width * row * 4] = displayed_depth_val;
 						buffer[4 * col + 1 + width * row * 4] = displayed_depth_val;
@@ -590,14 +590,14 @@ void rsx_debugger::OnClickDrawCalls()
 	{
 		if (width && height && !draw_call.depth_stencil[1].empty())
 		{
-			gsl::span<const gsl::byte> orig_buffer = draw_call.depth_stencil[1];
+			gsl::multi_span<const gsl::byte> orig_buffer = draw_call.depth_stencil[1];
 			unsigned char *buffer = (unsigned char *)malloc(width * height * 4);
 
 			for (u32 row = 0; row < height; row++)
 			{
 				for (u32 col = 0; col < width; col++)
 				{
-					u8 stencil_val = gsl::as_span<const u8>(orig_buffer)[row * width + col];
+					u8 stencil_val = gsl::as_multi_span<const u8>(orig_buffer)[row * width + col];
 					buffer[4 * col + 0 + width * row * 4] = stencil_val;
 					buffer[4 * col + 1 + width * row * 4] = stencil_val;
 					buffer[4 * col + 2 + width * row * 4] = stencil_val;
@@ -1056,7 +1056,7 @@ const char* rsx_debugger::ParseGCMEnum(u32 value, u32 type)
 		case 0xF006: return "Add Signed";
 		case 0xF007: return "Reverse Add Signed";
 
-		default: return "Wrong Value!";
+		default: return "Wrong value!";
 		}
 	}
 	case CELL_GCM_PRIMITIVE_ENUM:
@@ -1074,7 +1074,7 @@ const char* rsx_debugger::ParseGCMEnum(u32 value, u32 type)
 		case 9:  return "QUAD_STRIP";
 		case 10: return "POLYGON";
 
-		default: return "Wrong Value!"; 
+		default: return "Wrong value!"; 
 		}
 	}
 	default: return "Unknown!";
@@ -1144,7 +1144,7 @@ QString rsx_debugger::DisAsmCommand(u32 cmd, u32 count, u32 currentAddr, u32 ioA
 		break;
 
 		case_16(NV4097_SET_TEXTURE_OFFSET, 0x20):
-			DISASM("Texture Offset[%d]: %08x", index, (u32)args[0]);
+			DISASM("Texture offset[%d]: %08x", index, (u32)args[0]);
 			switch ((args[1] & 0x3) - 1)
 			{
 			case CELL_GCM_LOCATION_LOCAL: DISASM("(Local memory);");  break;
@@ -1170,7 +1170,7 @@ QString rsx_debugger::DisAsmCommand(u32 cmd, u32 count, u32 currentAddr, u32 ioA
 
 		if((cmd & RSX_METHOD_NON_INCREMENT_CMD_MASK) == RSX_METHOD_NON_INCREMENT_CMD)
 		{
-			DISASM("Non Increment cmd");
+			DISASM("Non increment cmd");
 		}
 
 		DISASM("[0x%08x(", cmd);

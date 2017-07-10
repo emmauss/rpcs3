@@ -169,7 +169,7 @@ void gui_settings::ShowInfoBox(const GUI_SAVE& entry, const QString& title, cons
 			LOG_WARNING(GENERAL, "Entry %s was set to false", sstr(entry.name));
 		}
 	}
-	else LOG_WARNING(GENERAL, "Entry %s is false, Info Box not shown", sstr(entry.name));
+	else LOG_WARNING(GENERAL, "Entry %s is false, info box not shown", sstr(entry.name));
 }
 
 void gui_settings::SetGamelistColVisibility(int col, bool val)

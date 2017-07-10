@@ -1,4 +1,4 @@
-#include <QCheckBox>
+﻿#include <QCheckBox>
 #include <QGroupBox>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -19,8 +19,8 @@ extern keyboard_pad_config g_kbpad_config;
 
 pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 {
-	// Left Analog Stick
-	QGroupBox *roundStickL = new QGroupBox(tr("Left Analog Stick"));
+	// Left analog stick
+	QGroupBox *roundStickL = new QGroupBox(tr("Left analog stick"));
 	QVBoxLayout *roundStickLMainVBox = new QVBoxLayout;
 	QVBoxLayout *roundStickLVBox = new QVBoxLayout;
 	QHBoxLayout *roundStickLHBox1 = new QHBoxLayout;
@@ -45,8 +45,8 @@ pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 	b_right_lstick->setFixedWidth(PadButtonWidth);
 	b_down_lstick->setFixedWidth(PadButtonWidth);
 
-	// D-Pad
-	QGroupBox *roundPadControls = new QGroupBox(tr("D-Pad"));
+	// Directional pad
+	QGroupBox *roundPadControls = new QGroupBox(tr("Directional pad"));
 	QVBoxLayout *roundPadControlsMainVBox = new QVBoxLayout;
 	QVBoxLayout *roundPadControlsVBox = new QVBoxLayout;
 	QHBoxLayout *roundPadControlsHBox1 = new QHBoxLayout;
@@ -71,8 +71,8 @@ pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 	b_right->setFixedWidth(PadButtonWidth);
 	b_down->setFixedWidth(PadButtonWidth);
 	
-	// Left Shifts
-	QGroupBox *roundPadShiftsL = new QGroupBox(tr("Left Shifts"));
+	// L buttons
+	QGroupBox *roundPadShiftsL = new QGroupBox(tr("L buttons"));
 	QGroupBox *roundPadL1 = new QGroupBox(tr("L1"));
 	QGroupBox *roundPadL2 = new QGroupBox(tr("L2"));
 	QGroupBox *roundPadL3 = new QGroupBox(tr("L3"));
@@ -119,8 +119,8 @@ pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 	b_select->setFixedWidth(PadButtonWidth);
 	b_start->setFixedWidth(PadButtonWidth);
 
-	// Right Shifts
-	QGroupBox *roundPadShiftsR = new QGroupBox(tr("Right Shifts"));
+	// R buttons
+	QGroupBox *roundPadShiftsR = new QGroupBox(tr("R buttons"));
 	QGroupBox *roundPadR1 = new QGroupBox(tr("R1"));
 	QGroupBox *roundPadR2 = new QGroupBox(tr("R2"));
 	QGroupBox *roundPadR3 = new QGroupBox(tr("R3"));
@@ -188,8 +188,8 @@ pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 	b_circle->setFixedWidth(PadButtonWidth);
 	b_cross->setFixedWidth(PadButtonWidth);
 
-	// Right Analog Stick
-	QGroupBox *roundStickR = new QGroupBox(tr("Right Analog Stick"));
+	// Right analog stick
+	QGroupBox *roundStickR = new QGroupBox(tr("Right analog stick"));
 	QVBoxLayout *roundStickRMainVBox = new QVBoxLayout;
 	QVBoxLayout *roundStickRVBox = new QVBoxLayout;
 	QHBoxLayout *roundStickRHBox1 = new QHBoxLayout;
@@ -283,7 +283,7 @@ pad_settings_dialog::pad_settings_dialog(QWidget *parent) : QDialog(parent)
 	vbox->addLayout(hbox2);
 	setLayout(vbox);
 
-	setWindowTitle(tr("Input Settings"));
+	setWindowTitle(tr("Input settings"));
 
 	g_kbpad_config.load();
 	UpdateLabel();

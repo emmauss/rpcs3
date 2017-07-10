@@ -228,7 +228,7 @@ void main_window::BootGame()
 	}
 
 	QString path_last_Game = guiSettings->GetValue(GUI::fd_boot_game).toString();
-	QString dirPath = QFileDialog::getExistingDirectory(this, tr("Select Game Folder"), path_last_Game, QFileDialog::ShowDirsOnly);
+	QString dirPath = QFileDialog::getExistingDirectory(this, tr("Select game folder"), path_last_Game, QFileDialog::ShowDirsOnly);
 
 	if (dirPath == NULL)
 	{
@@ -708,7 +708,7 @@ void main_window::OnEmuPause()
 	thumb_playPause->setToolTip(tr("Resume"));
 	thumb_playPause->setIcon(icon_play);
 #endif
-	sysPauseAct->setText(tr("&Resume\tCtrl+E"));
+	sysPauseAct->setText(tr("&Resume\tCtrl+F"));
 	sysPauseAct->setIcon(icon_play);
 	menu_run->setText(tr("&Resume"));
 	menu_run->setIcon(icon_play);
@@ -726,7 +726,7 @@ void main_window::OnEmuStop()
 	EnableMenus(false);
 	if (!Emu.GetPath().empty())
 	{
-		sysPauseAct->setText(tr("&Restart\tCtrl+E"));
+		sysPauseAct->setText(tr("&Restart\tCtrl+F"));
 		sysPauseAct->setIcon(icon_restart);
 		sysPauseAct->setEnabled(true);
 		menu_restart->setEnabled(true);
@@ -736,7 +736,7 @@ void main_window::OnEmuStop()
 	}
 	else
 	{
-		sysPauseAct->setText(Emu.IsReady() ? tr("&Start\tCtrl+E") : tr("&Resume\tCtrl+E"));
+		sysPauseAct->setText(Emu.IsReady() ? tr("&Start\tCtrl+F") : tr("&Resume\tCtrl+F"));
 		sysPauseAct->setIcon(icon_play);
 	}
 }
@@ -748,7 +748,7 @@ void main_window::OnEmuReady()
 	thumb_playPause->setToolTip(Emu.IsReady() ? tr("Start") : tr("Resume"));
 	thumb_playPause->setIcon(icon_play);
 #endif
-	sysPauseAct->setText(Emu.IsReady() ? tr("&Start\tCtrl+E") : tr("&Resume\tCtrl+E"));
+	sysPauseAct->setText(Emu.IsReady() ? tr("&Start\tCtrl+F") : tr("&Resume\tCtrl+F"));
 	sysPauseAct->setIcon(icon_play);
 	menu_run->setText(Emu.IsReady() ? tr("&Start") : tr("&Resume"));
 	menu_run->setIcon(icon_play);
@@ -963,7 +963,7 @@ void main_window::AddRecentAction(const q_string_pair& entry)
 void main_window::CreateActions()
 {
 	bootElfAct = new QAction(tr("Boot (S)ELF file"), this);
-	bootGameAct = new QAction(tr("Boot &Game"), this);
+	bootGameAct = new QAction(tr("Boot &game"), this);
 	bootInstallPkgAct = new QAction(tr("&Install PKG"), this);
 	bootInstallPupAct = new QAction(tr("&Install Firmware"), this);
 
@@ -983,56 +983,56 @@ void main_window::CreateActions()
 	sysStopAct->setEnabled(false);
 	sysStopAct->setIcon(icon_stop);
 
-	sysSendOpenMenuAct = new QAction(tr("Send &open system menu cmd"), this);
+	sysSendOpenMenuAct = new QAction(tr("Press &PS button"), this);
 	sysSendOpenMenuAct->setEnabled(false);
 
 	sysSendExitAct = new QAction(tr("Send &exit cmd"), this);
 	sysSendExitAct->setEnabled(false);
 
 	confSettingsAct = new QAction(tr("&Settings"), this);
-	confPadAct = new QAction(tr("&Keyboard Settings"), this);
+	confPadAct = new QAction(tr("&Controller settings"), this);
 
-	confAutopauseManagerAct = new QAction(tr("&Auto Pause Settings"), this);
+	confAutopauseManagerAct = new QAction(tr("&Automatic pause settings"), this);
 	confAutopauseManagerAct->setEnabled(false);
 
-	confVFSDialogAct = new QAction(tr("Virtual File System"), this);
-	
-	confSavedataManagerAct = new QAction(tr("Save &Data Utility"), this);
+	confVFSDialogAct = new QAction(tr("Virtual file system"), this);
+
+	confSavedataManagerAct = new QAction(tr("Save &data utility"), this);
 	confSavedataManagerAct->setEnabled(false);
 
-	toolsCgDisasmAct = new QAction(tr("&Cg Disasm"), this);
+	toolsCgDisasmAct = new QAction(tr("&Cg disassembler"), this);
 	toolsCgDisasmAct->setEnabled(true);
 
-	toolskernel_explorerAct = new QAction(tr("&Kernel Explorer"), this);
+	toolskernel_explorerAct = new QAction(tr("&Kernel explorer"), this);
 	toolskernel_explorerAct->setEnabled(false);
 
-	toolsmemory_viewerAct = new QAction(tr("&Memory Viewer"), this);
+	toolsmemory_viewerAct = new QAction(tr("&Memory viewer"), this);
 	toolsmemory_viewerAct->setEnabled(false);
 
 	toolsRsxDebuggerAct = new QAction(tr("&RSX Debugger"), this);
 	toolsRsxDebuggerAct->setEnabled(false);
 
-	toolsStringSearchAct = new QAction(tr("&String Search"), this);
+	toolsStringSearchAct = new QAction(tr("&String search"), this);
 	toolsStringSearchAct->setEnabled(false);
 
 	toolsDecryptSprxLibsAct = new QAction(tr("SPRX &Decryption"), this);
 
-	showDebuggerAct = new QAction(tr("Show Debugger"), this);
+	showDebuggerAct = new QAction(tr("Show debugger"), this);
 	showDebuggerAct->setCheckable(true);
 
 	showLogAct = new QAction(tr("Show Log/TTY"), this);
 	showLogAct->setCheckable(true);
 
-	showGameListAct = new QAction(tr("Show Game List"), this);
+	showGameListAct = new QAction(tr("Show game list"), this);
 	showGameListAct->setCheckable(true);
 
-	showControlsAct = new QAction(tr("Show Controls"), this);
+	showControlsAct = new QAction(tr("Show controls"), this);
 	showControlsAct->setCheckable(true);
 
-	showGameListToolBarAct = new QAction(tr("Show Tool Bar"), this);
+	showGameListToolBarAct = new QAction(tr("Show tool bar"), this);
 	showGameListToolBarAct->setCheckable(true);
 
-	refreshGameListAct = new QAction(tr("&Refresh Game List"), this);
+	refreshGameListAct = new QAction(tr("&Refresh game list"), this);
 
 	showCatHDDGameAct = new QAction(category::hdd_Game, this);
 	showCatHDDGameAct->setCheckable(true);
@@ -1138,7 +1138,7 @@ void main_window::CreateConnects()
 	connect(sysSendOpenMenuAct, &QAction::triggered, [=](){
 		sysutil_send_system_cmd(m_sys_menu_opened ? 0x0132 /* CELL_SYSUTIL_SYSTEM_MENU_CLOSE */ : 0x0131 /* CELL_SYSUTIL_SYSTEM_MENU_OPEN */, 0);
 		m_sys_menu_opened = !m_sys_menu_opened;
-		sysSendOpenMenuAct->setText(tr("Send &%0 system menu cmd").arg(m_sys_menu_opened ? tr("close") : tr("open")));
+		sysSendOpenMenuAct->setText(tr("Press &%0 PS button").arg(m_sys_menu_opened ? tr("close") : tr("open")));
 	});
 	connect(sysSendExitAct, &QAction::triggered, [=](){
 		sysutil_send_system_cmd(0x0101 /* CELL_SYSUTIL_REQUEST_EXITGAME */, 0);
@@ -1279,7 +1279,7 @@ void main_window::CreateConnects()
 
 void main_window::CreateMenus()
 {
-	QMenu *bootMenu = menuBar()->addMenu(tr("&Boot"));
+	QMenu *bootMenu = menuBar()->addMenu(tr("&File"));
 	bootMenu->addAction(bootElfAct);
 	bootMenu->addAction(bootGameAct);
 
@@ -1328,13 +1328,13 @@ void main_window::CreateMenus()
 	viewMenu->addAction(showGameListToolBarAct);
 	viewMenu->addAction(refreshGameListAct);
 
-	QMenu *categoryMenu = viewMenu->addMenu(tr("Show Categories"));
+	QMenu *categoryMenu = viewMenu->addMenu(tr("Show categories"));
 	categoryMenu->addActions(categoryVisibleActGroup->actions());
 
-	QMenu *iconSizeMenu = viewMenu->addMenu(tr("Icon Size"));
+	QMenu *iconSizeMenu = viewMenu->addMenu(tr("Icon size"));
 	iconSizeMenu->addActions(iconSizeActGroup->actions());
 
-	QMenu *listModeMenu = viewMenu->addMenu(tr("Game List Mode"));
+	QMenu *listModeMenu = viewMenu->addMenu(tr("Game list mode"));
 	listModeMenu->addActions(listModeActGroup->actions());
 
 	QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -1345,7 +1345,7 @@ void main_window::CreateMenus()
 	menu_run = new QPushButton(tr("Start"));
 	menu_stop = new QPushButton(tr("Stop"));
 	menu_restart = new QPushButton(tr("Restart"));
-	menu_capture_frame = new QPushButton(tr("Capture Frame"));
+	menu_capture_frame = new QPushButton(tr("Capture frame"));
 	menu_run->setEnabled(false);
 	menu_stop->setEnabled(false);
 	menu_restart->setEnabled(false);
@@ -1492,7 +1492,7 @@ void main_window::keyPressEvent(QKeyEvent *keyEvent)
 	{
 		switch (keyEvent->key())
 		{
-		case Qt::Key_E: if (Emu.IsPaused()) Emu.Resume(); else if (Emu.IsReady()) Emu.Run(); return;
+		case Qt::Key_F: if (Emu.IsPaused()) Emu.Resume(); else if (Emu.IsReady()) Emu.Run(); return;
 		case Qt::Key_P: if (Emu.IsRunning()) Emu.Pause(); return;
 		case Qt::Key_S: if (!Emu.IsStopped()) Emu.Stop(); return;
 		case Qt::Key_R: if (!Emu.GetPath().empty()) { Emu.Stop(); Emu.Run(); } return;

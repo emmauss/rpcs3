@@ -11,7 +11,7 @@ inline std::string sstr(const QString& _in) { return _in.toUtf8().toStdString();
 graphics_tab::graphics_tab(std::shared_ptr<emu_settings> xSettings, Render_Creator r_Creator, QWidget *parent) : QWidget(parent), xemu_settings(xSettings)
 {
 	// Render
-	QGroupBox *render = new QGroupBox(tr("Render"));
+	QGroupBox *render = new QGroupBox(tr("Rendering API"));
 
 	QComboBox *renderBox = xemu_settings->CreateEnhancedComboBox(emu_settings::Renderer, this);
 
@@ -77,7 +77,7 @@ graphics_tab::graphics_tab(std::shared_ptr<emu_settings> xSettings, Render_Creat
 
 	if (supportsD3D12 || supportsVulkan)
 	{
-		graphicsAdapter = new QGroupBox(tr("Select Graphics Device"));
+		graphicsAdapter = new QGroupBox(tr("Select graphics device"));
 		graphicsAdapterBox = new QComboBox(this);
 		QVBoxLayout *graphicsAdapterVbox = new QVBoxLayout();
 		graphicsAdapterVbox->addWidget(graphicsAdapterBox);

@@ -7,8 +7,8 @@
 
 input_tab::input_tab(std::shared_ptr<emu_settings> xemu_settings, QWidget *parent) : QWidget(parent)
 {
-	// Pad Handler
-	QGroupBox *padHandler = new QGroupBox(tr("Pad Handler"));
+	// Controller Handler
+	QGroupBox *padHandler = new QGroupBox(tr("Controller Handler"));
 
 	QComboBox *padHandlerBox = xemu_settings->CreateEnhancedComboBox(emu_settings::PadHandler, this);
 

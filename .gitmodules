@@ -8,7 +8,6 @@
 [submodule "llvm"]
 	path = llvm
 	url = https://github.com/llvm-mirror/llvm
-	branch = release_40
 [submodule "rsx_program_decompiler"]
 	path = rsx_program_decompiler
 	url = https://github.com/RPCS3/rsx_program_decompiler
@@ -17,7 +16,7 @@
 	url = https://github.com/Microsoft/GSL.git
 [submodule "libpng"]
 	path = 3rdparty/libpng
-	url = https://github.com/RPCS3/libpng
+	url = https://github.com/Zangetsu38/libpng
 	ignore = dirty
 [submodule "Vulkan/glslang"]
 	path = Vulkan/glslang
@@ -42,5 +41,5 @@
 	url = https://github.com/madler/zlib
 [submodule "3rdparty/hidapi"]
 	path = 3rdparty/hidapi
-	url = https://github.com/RPCS3/hidapi
+	url = https://github.com/Zangetsu38/hidapi
 	branch = master
